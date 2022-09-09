@@ -307,7 +307,7 @@ public:
 
   uint32_t GetSerializedSize () const
   {
-    return 23;
+    return 8;
   }
   void Serialize (Buffer::Iterator start) const
   {
@@ -606,6 +606,21 @@ private:
   Ptr<NetDevice> m_dev2;
 };
 
+class NodeInfo
+{
+public:
+  NodeInfo():m_delay(Seconds(9999)),m_load(1){}
+  void SetDelay(Time time){m_delay = time;}
+  void SetLoad(uint32_t load){m_load = load;}
+
+  Time GetDelay(){return m_delay;}
+  uint32_t GetLoad(){return m_load;}
+
+private:
+  Time m_delay;
+  uint32_t m_load;
+};
+
 class NetView
 {
 public:
@@ -628,11 +643,25 @@ public:
     return *this;
   }
 
+  void InitSnap();
+  void UpdateSnap(Ptr<Node> master, Ptr<Node> slave, Time time ,Time delay,uint32_t load);
+
+//  void SetUpdate(Callback<void,Time> func) {m_uddelay_func = func;}
+//  void SetUpdate(Callback<void,uint32_t> func) {m_udload_func = func;}
+
 private:
 
   typedef std::map<Ptr<Node>,std::list<std::pair<Ptr<Node>,NetViewEdge>>> Adjlist;
   typedef std::list<std::pair<Ptr<Node>,NetViewEdge>> LList;
   Adjlist m_view;
+
+
+//  std::map<Ptr<Node>,std::map<Ptr<Node>,std::pair<Time,NodeInfo>>> m_snap;
+  std::map<std::pair<Ptr<Node>,Ptr<Node>>,std::pair<Time,NodeInfo>> m_snap;
+
+//
+//  Callback<void,Time> m_uddelay_func;
+//  Callback<void,uint32_t> m_udload_func;
 
 private:
 
@@ -658,7 +687,6 @@ public:
         m_table.erase(add);
       }
   }
-
   bool LookupRoute (Ipv4Address id, Ipv4Route & rt);
 private:
   std::map<Ipv4Address,Ipv4Route> m_table;
@@ -703,9 +731,10 @@ public:
   void SetNodeState(NodeState ns){m_state = ns;}
 
   RoutingProtocol()
-  :m_queue(100,Seconds(30)),m_type(SWITCH),m_state(FREE)
+  :m_queue(100,Seconds(30)),m_type(SWITCH),m_state(FREE),m_interval(Seconds(1))
   {
-
+    m_htimer.SetFunction (&RoutingProtocol::HelloTimerExpire, this);
+    m_htimer.Schedule (Seconds(0));
   };
 
   void RecvAodv (Ptr<Socket> socket);
@@ -714,6 +743,10 @@ public:
   Ipv4Address GetConIP(){return m_conIP;}
 
   void SetOutSocket(Ipv4InterfaceAddress add){m_outSocket = std::make_pair(FindSocketWithInterfaceAddress(add),add);}
+
+  void HelloTimerExpire ();
+
+  void SetHelloInterval(Time time){m_interval = time;}
 
 private:
 
@@ -738,6 +771,8 @@ private:
 
   void Start ();
 
+  void SendHello ();
+
 
 private:
   RoutingTable m_routingtable;
@@ -751,6 +786,9 @@ private:
 
   Ipv4Address m_conIP;
   std::pair<Ptr<Socket>,Ipv4InterfaceAddress> m_outSocket;
+
+  Timer m_htimer;
+  Time m_interval;
 
 
 

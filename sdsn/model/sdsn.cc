@@ -99,6 +99,77 @@ NetView::GetLoad(Ptr<Node> node1, Ptr<Node> node2)
   return std::make_pair(Simulator::Now(),1);
 }
 
+void
+NetView::InitSnap()
+{
+  for(auto it = m_view.begin(); it != m_view.end(); ++it)
+    {
+      for(auto iter = it->second.begin(); iter != it->second.end(); ++iter)
+        {
+
+          m_snap.insert({std::make_pair(it->first,iter->first),
+                        std::make_pair(Seconds(0),NodeInfo())}
+                        );
+          if(iter->first == it->first) continue;
+
+          m_snap.find(std::make_pair(it->first,iter->first))->second.first = Seconds(0); //timestamp
+          m_snap.find(std::make_pair(it->first,iter->first))->second.second.SetDelay(iter->second.GetDelay());
+          m_snap.find(std::make_pair(it->first,iter->first))->second.second.SetLoad(iter->second.GetLoad());
+        }
+    }
+}
+
+void
+NetView::UpdateSnap(Ptr<Node> master, Ptr<Node> slave, Time time ,Time delay, uint32_t load)
+{
+  m_snap.find({master,slave})->second.first = time;
+  m_snap.find({master,slave})->second.second.SetDelay(delay);
+  m_snap.find({master,slave})->second.second.SetLoad(load);
+}
+
+void
+RoutingProtocol::SendHello ()
+{
+  NS_LOG_FUNCTION (this);
+  /* Broadcast a RREP with TTL = 1 with the RREP message fields set as follows:
+   *   Destination IP Address         The node's IP address.
+   *   Destination Sequence Number    The node's latest sequence number.
+   *   Hop Count                      0
+   *   Lifetime                       AllowedHelloLoss * HelloInterval
+   */
+
+  RRHeader helloHeader;
+  helloHeader.SetDst(m_conIP);
+  helloHeader.SetOriginAdd(m_outSocket.second.GetLocal());
+  Ptr<Packet> packet = Create<Packet> ();
+
+  SocketIpTtlTag tag;
+  tag.SetTtl (30);
+  packet->AddPacketTag (tag);
+  packet->AddHeader (helloHeader);
+  TypeHeader tHeader (SDSNTYPE_RREP);
+  packet->AddHeader(tHeader);
+
+  Simulator::Schedule(Seconds(0),&RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIP);
+}
+
+
+void
+RoutingProtocol::HelloTimerExpire ()
+{
+  NS_LOG_FUNCTION (this);
+
+  SendHello ();
+  m_htimer.Cancel ();
+  m_htimer.Schedule (std::max (Time (Seconds (0)), m_interval));
+}
+
+
+
+
+
+
+
 bool
 RoutingTable::LookupRoute (Ipv4Address id, Ipv4Route & rt)
 {
@@ -275,7 +346,7 @@ RoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p, const Ipv4Header & he
           packet->AddHeader (rrh);
           TypeHeader tHeader (SDSNTYPE_RREQ);
           packet->AddHeader (tHeader);
-          Simulator::Schedule (Simulator::Now(), &RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIP);
+          Simulator::Schedule (Seconds(0), &RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIP);
         }
     }
 
@@ -428,13 +499,12 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
   //  A node generates a RREP if either:
   //  (i)  it is itself the destination,
   Ipv4Route toOrigin;
-  if (IsMyOwnAddress (rreqHeader.GetDst ()))
-    {
+
       m_routingtable.LookupRoute (origin, toOrigin);
       NS_LOG_DEBUG ("Send reply since I am the destination");
       SendReply (rreqHeader, toOrigin);
       return;
-    }
+
 }
 
 void
@@ -846,6 +916,9 @@ NetView::ControlPathRouting(Ptr<Node> swc, std::vector<std::pair<Ptr<Node>,NetVi
       ro_to_swc.SetOutputDevice(it->second.GetDevice(1));
       uphop_ipv4->GetObject<RoutingProtocol>()->AddRoute(ro_to_swc);
     }
+
+  //Out Socket
+  rp->SetOutSocket(src_ipv4->GetAddress(src_interface, 0));
 }
 
 void
