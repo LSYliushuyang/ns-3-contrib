@@ -9,6 +9,7 @@
 #include <list>
 #include <vector>
 #include <queue>
+#include "ns3/random-variable-stream.h"
 
 namespace ns3 {
 
@@ -611,14 +612,14 @@ class NodeInfo
 public:
   NodeInfo():m_delay(Seconds(9999)),m_load(1){}
   void SetDelay(Time time){m_delay = time;}
-  void SetLoad(uint32_t load){m_load = load;}
+  void SetLoad(double load){m_load = load;}
 
   Time GetDelay(){return m_delay;}
   uint32_t GetLoad(){return m_load;}
 
 private:
   Time m_delay;
-  uint32_t m_load;
+  double m_load;
 };
 
 class NetView
@@ -644,10 +645,12 @@ public:
   }
 
   void InitSnap();
-  void UpdateSnap(Ptr<Node> master, Ptr<Node> slave, Time time ,Time delay,uint32_t load);
+  void UpdateSnap(Ptr<Node> master, Ptr<Node> slave, Time time ,Time delay,double load);
 
 //  void SetUpdate(Callback<void,Time> func) {m_uddelay_func = func;}
 //  void SetUpdate(Callback<void,uint32_t> func) {m_udload_func = func;}
+
+  std::map<Ipv4Address,std::map<std::pair<Ptr<Node>,Ptr<Node>>,std::pair<Time,NodeInfo>>> m_cache;
 
 private:
 
@@ -658,6 +661,8 @@ private:
 
 //  std::map<Ptr<Node>,std::map<Ptr<Node>,std::pair<Time,NodeInfo>>> m_snap;
   std::map<std::pair<Ptr<Node>,Ptr<Node>>,std::pair<Time,NodeInfo>> m_snap;
+
+
 
 //
 //  Callback<void,Time> m_uddelay_func;
@@ -734,7 +739,20 @@ public:
   :m_queue(100,Seconds(30)),m_type(SWITCH),m_state(FREE),m_interval(Seconds(1))
   {
     m_htimer.SetFunction (&RoutingProtocol::HelloTimerExpire, this);
-    m_htimer.Schedule (Seconds(0));
+
+
+    /*
+     *
+     *
+     *
+     *
+     */
+
+    uint32_t startTime = rand()%100;
+    m_htimer.Schedule (MilliSeconds (startTime));
+
+
+//    m_htimer.Schedule (Seconds(0));
   };
 
   void RecvAodv (Ptr<Socket> socket);

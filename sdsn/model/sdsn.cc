@@ -120,8 +120,9 @@ NetView::InitSnap()
 }
 
 void
-NetView::UpdateSnap(Ptr<Node> master, Ptr<Node> slave, Time time ,Time delay, uint32_t load)
+NetView::UpdateSnap(Ptr<Node> master, Ptr<Node> slave, Time time ,Time delay, double load)
 {
+  if(time < m_snap.find({master,slave})->second.first) return;
   m_snap.find({master,slave})->second.first = time;
   m_snap.find({master,slave})->second.second.SetDelay(delay);
   m_snap.find({master,slave})->second.second.SetLoad(load);
@@ -138,6 +139,29 @@ RoutingProtocol::SendHello ()
    *   Lifetime                       AllowedHelloLoss * HelloInterval
    */
 
+  if(m_type == CONTROLLER)
+    {
+      Ptr<Node> no = this->GetObject<Node>();
+      Ptr<Channel> cha;
+      Ptr<NetDevice> dev;
+      Ptr<Node> ono;
+      Ptr<NetDevice> odev;
+
+      for(uint32_t i = 0; i < no->GetNDevices(); ++i)
+        {
+          dev = no->GetDevice(i);
+          cha = dev->GetChannel();
+          if(cha)
+            {
+              odev = cha->GetDevice(0) == dev ? cha->GetDevice(1) : cha->GetDevice(0);
+              ono = odev->GetNode();
+
+              LogCen.UpdateSnap(no, ono, Simulator::Now(), LogCen.GetDelay(no, ono).second ,LogCen.GetLoad(no, ono).second);
+            }
+        }
+
+      return;
+    }
   RRHeader helloHeader;
   helloHeader.SetDst(m_conIP);
   helloHeader.SetOriginAdd(m_outSocket.second.GetLocal());
@@ -150,6 +174,45 @@ RoutingProtocol::SendHello ()
   TypeHeader tHeader (SDSNTYPE_RREP);
   packet->AddHeader(tHeader);
 
+
+
+  Ptr<Node> no = this->GetObject<Node>();
+  Ptr<Node> ono;
+
+  Ptr<NetDevice> dev;
+  Ptr<NetDevice> odev;
+  Ptr<Channel> cha;
+  NodeInfo ni;
+
+  for(uint32_t i = 0; i < no->GetNDevices(); ++i)
+    {
+      dev = no->GetDevice(i);
+      cha = dev->GetChannel();
+      if(cha)
+        {
+          odev = cha->GetDevice(0) == dev ? cha->GetDevice(1) : cha->GetDevice(0);
+
+          ono = odev->GetNode();
+
+          ni.SetDelay(LogCen.GetDelay(no, ono).second);
+          ni.SetLoad(LogCen.GetLoad(no,ono).second);
+          if(LogCen.m_cache.count(m_outSocket.second.GetLocal()))
+            {
+              if(LogCen.m_cache.find(m_outSocket.second.GetLocal()) ->second.count({no,ono}))
+                LogCen.m_cache.find(m_outSocket.second.GetLocal())->second.find({no,ono})->second = {Simulator::Now(),ni};
+              else
+                LogCen.m_cache.find(m_outSocket.second.GetLocal())->second.insert({{no,ono},{Simulator::Now(),ni}});
+            }
+          else
+            {
+              std::map<std::pair<Ptr<Node>,Ptr<Node>>,std::pair<Time,NodeInfo>> temp;
+              temp[{no,ono}] = {Simulator::Now(),ni};
+              LogCen.m_cache[m_outSocket.second.GetLocal()] = temp;
+            }
+        }
+    }
+
+  //LogCen.
   Simulator::Schedule(Seconds(0),&RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIP);
 }
 
@@ -564,7 +627,7 @@ RoutingProtocol::RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sen
 
       //m_routingtable.AddRoute (newEntry);
 
-  if (IsMyOwnAddress (rrepHeader.GetOrigin ()))
+  if (IsMyOwnAddress (rrepHeader.GetOrigin ()) && m_type == SWITCH)
     {
       Ipv4Route toDst;
 
@@ -572,6 +635,20 @@ RoutingProtocol::RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sen
       SendPacketFromQueue (dst, &toDst);
       return;
     }
+
+  if(IsMyOwnAddress(rrepHeader.GetDst()) && m_type == CONTROLLER)   //receive hello from switch
+    {
+      for(auto it = LogCen.m_cache.find(rrepHeader.GetOrigin())->second.begin();
+               it != LogCen.m_cache.find(rrepHeader.GetOrigin())->second.end();
+               ++it
+      )
+        {
+          LogCen.UpdateSnap(it->first.first, it->first.second, it->second.first, it->second.second.GetDelay(), it->second.second.GetLoad());
+        }
+      return;
+    }
+
+
 }
 
 
