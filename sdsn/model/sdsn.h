@@ -20,6 +20,7 @@ enum NodeType {SWITCH, CONTROLLER};
 
 enum NodeState {CONNECTED, FREE};
 
+
 class QueueEntry
 {
 public:
@@ -650,7 +651,17 @@ public:
 //  void SetUpdate(Callback<void,Time> func) {m_uddelay_func = func;}
 //  void SetUpdate(Callback<void,uint32_t> func) {m_udload_func = func;}
 
+  void CalculateRouteFromSnap(Ipv4Address src, Ipv4Address dst);
+
+
+
+public:
+
   std::map<Ipv4Address,std::map<std::pair<Ptr<Node>,Ptr<Node>>,std::pair<Time,NodeInfo>>> m_cache;
+
+//  void CalculateRouteFromSnap(Ipv4Address ori, Ipv4Address dst);
+
+  std::map<std::pair<Ptr<Node>,Ipv4Address>,Ipv4Route> m_route;
 
 private:
 
@@ -658,9 +669,12 @@ private:
   typedef std::list<std::pair<Ptr<Node>,NetViewEdge>> LList;
   Adjlist m_view;
 
-
 //  std::map<Ptr<Node>,std::map<Ptr<Node>,std::pair<Time,NodeInfo>>> m_snap;
   std::map<std::pair<Ptr<Node>,Ptr<Node>>,std::pair<Time,NodeInfo>> m_snap;
+
+  std::map<std::pair<Ipv4Address,Ipv4Address>,Ipv4Route> m_cal_route_cache;
+
+
 
 
 
@@ -672,6 +686,7 @@ private:
 
   void SetPair(Ptr<Node> con, Ptr<Node> swc);
   void ControlPathRouting(Ptr<Node> swc, std::vector<std::pair<Ptr<Node>,NetViewEdge>> control_path);
+
 };
 
 class RoutingTable
@@ -740,14 +755,6 @@ public:
   {
     m_htimer.SetFunction (&RoutingProtocol::HelloTimerExpire, this);
 
-
-    /*
-     *
-     *
-     *
-     *
-     */
-
     uint32_t startTime = rand()%100;
     m_htimer.Schedule (MilliSeconds (startTime));
 
@@ -767,8 +774,6 @@ public:
   void SetHelloInterval(Time time){m_interval = time;}
 
 private:
-
-
 
   Ptr<Ipv4Route> LoopbackRoute (const Ipv4Header & header, Ptr<NetDevice> oif) const;
   void DeferredRouteOutput (Ptr<const Packet> p, const Ipv4Header & header, UnicastForwardCallback ucb, ErrorCallback ecb);
@@ -807,6 +812,8 @@ private:
 
   Timer m_htimer;
   Time m_interval;
+
+//  std::pair<int,int> a;
 
 
 

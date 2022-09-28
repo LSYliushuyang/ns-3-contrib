@@ -2,6 +2,11 @@
 
 #include "sdsn.h"
 
+std::map<ns3::Ptr<ns3::Node>,std::pair<int,int>> NodeToIndex;
+std::map<std::pair<int,int>,ns3::Ptr<ns3::Node>> IndexToNode;
+std::map<ns3::Ipv4Address,ns3::Ptr<ns3::Node>> Ipv4ToNode;
+
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("SDSN");
@@ -10,6 +15,7 @@ NS_LOG_COMPONENT_DEFINE ("SDSN");
 
 namespace sdsn
 {
+
 
 NS_OBJECT_ENSURE_REGISTERED (RoutingProtocol);
 
@@ -558,10 +564,23 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
 
   Ipv4Address origin = rreqHeader.GetOrigin ();
 
+  Ipv4Address dest = rreqHeader.GetDst();
+
+
+  /*
+   * Get Route From Controller's Route List
+   *
+   *
+   */
+
+  LogCen.CalculateRouteFromSnap(origin, dest);
+
 
   //  A node generates a RREP if either:
   //  (i)  it is itself the destination,
   Ipv4Route toOrigin;
+
+
 
       m_routingtable.LookupRoute (origin, toOrigin);
       NS_LOG_DEBUG ("Send reply since I am the destination");
@@ -932,6 +951,8 @@ NetView::ControlPathRouting(Ptr<Node> swc, std::vector<std::pair<Ptr<Node>,NetVi
 {
   //m_ConIp
 
+
+
   Ptr<NetDevice> con_dev =  control_path.back().second.GetDevice(1);
 
   Ptr<Ipv4> con_ipv4 = con_dev->GetNode()->GetObject<Ipv4>();
@@ -1051,6 +1072,153 @@ NetView::SetPair(Ptr<Node> con, Ptr<Node> swc)
   crp->SetNodeState(CONNECTED);
   srp->SetNodeType(SWITCH);
   srp->SetNodeState(CONNECTED);
+
+}
+
+
+
+
+
+void
+NetView::CalculateRouteFromSnap(Ipv4Address src, Ipv4Address dst)
+{
+
+
+
+
+
+  Ptr<Node> ono = Ipv4ToNode.find(src)->second;
+  Ptr<Node> dno = Ipv4ToNode.find(dst)->second;
+
+  std::pair<int,int> oind = NodeToIndex.find(ono)->second;
+  std::pair<int,int> dind = NodeToIndex.find(dno)->second;
+
+  int inter_plane_hop = dind.first-oind.first;
+  int intra_plane_hop = dind.second-oind.second;
+
+//  int nPlane = NodeToIndex.cbegin()->second.first;
+  int nPerPlane = NodeToIndex.cbegin()->second.second;
+
+  if(intra_plane_hop < - nPerPlane/2.0)
+    {
+      intra_plane_hop = nPerPlane + intra_plane_hop;
+    }
+  else if(intra_plane_hop > nPerPlane/2.0)
+    {
+      intra_plane_hop = nPerPlane - intra_plane_hop;
+    }
+
+  Ipv4Route route;
+
+  route.SetDestination(dst);
+  route.SetSource(src);
+
+
+  if(inter_plane_hop == 0)
+    {
+      int next_intra = oind.second;
+      if(intra_plane_hop > 0) next_intra = oind.second - 1 == 0 ? nPerPlane : oind.second - 1;
+      else if(intra_plane_hop < 0) next_intra = oind.second == nPerPlane ? 1 : oind.second + 1;
+
+      Ptr<Node> next = IndexToNode.find({oind.first,next_intra})->second;
+
+      for(auto it = m_view.find(ono)->second.begin(); it != m_view.find(ono)->second.end(); ++it)
+        {
+          if(it->first == next)
+            {
+              route.SetOutputDevice(it->second.GetDevice(1));
+              Ptr<Ipv4> ipv4 = next->GetObject<Ipv4>();
+              int interface = ipv4->GetInterfaceForDevice(it->second.GetDevice(2));
+              route.SetGateway(ipv4->GetAddress(interface, 0).GetLocal());
+              m_cal_route_cache[{src,dst}] = route;
+            }
+        }
+    }
+  else if(intra_plane_hop == 0)
+    {
+      int next_inter = oind.first;
+      if(inter_plane_hop > 0) next_inter = next_inter - 1;
+      else if(inter_plane_hop < 0 ) next_inter = next_inter +1;
+
+      Ptr<Node> next = IndexToNode.find({oind.first,next_inter})->second;
+
+      for(auto it = m_view.find(ono)->second.begin(); it != m_view.find(ono)->second.end(); ++it)
+        {
+          if(it->first == next)
+            {
+              route.SetOutputDevice(it->second.GetDevice(1));
+              Ptr<Ipv4> ipv4 = next->GetObject<Ipv4>();
+              int interface = ipv4->GetInterfaceForDevice(it->second.GetDevice(2));
+              route.SetGateway(ipv4->GetAddress(interface, 0).GetLocal());
+              m_cal_route_cache[{src,dst}] = route;
+            }
+        }
+    }
+  else
+    {
+      int next_intra = oind.second;
+      if(intra_plane_hop > 0) next_intra = oind.second - 1 == 0 ? nPerPlane : oind.second - 1;
+      else if(intra_plane_hop < 0) next_intra = oind.second == nPerPlane ? 1 : oind.second + 1;
+
+      Ptr<Node> next1 = IndexToNode.find({oind.first,next_intra})->second;
+
+      double load1,load2;
+      Time delay1,delay2;
+
+      Ptr<NetDevice> dev1,dev2;
+      Ptr<Ipv4> ipv4_1,ipv4_2;
+
+      Ipv4Route route1, route2;
+      route1.SetDestination(dst);
+      route1.SetSource(src);
+
+      route2.SetDestination(dst);
+      route2.SetSource(src);
+
+      for(auto it = m_view.find(ono)->second.begin(); it != m_view.find(ono)->second.end(); ++it)
+        {
+          if(it->first == next1)
+            {
+              load1 = it->second.GetLoad();
+              delay1 = it->second.GetDelay();
+              route1.SetOutputDevice(it->second.GetDevice(1));
+              ipv4_1 = next1->GetObject<Ipv4>();
+              int interface = ipv4_1->GetInterfaceForDevice(it->second.GetDevice(2));
+              route1.SetGateway(ipv4_1->GetAddress(interface, 0).GetLocal());
+            }
+        }
+
+      int next_inter = oind.first;
+      if(inter_plane_hop > 0) next_inter = next_inter - 1;
+      else if(inter_plane_hop < 0 ) next_inter = next_inter +1;
+
+      Ptr<Node> next2 = IndexToNode.find({oind.first,next_inter})->second;
+
+      for(auto it = m_view.find(ono)->second.begin(); it != m_view.find(ono)->second.end(); ++it)
+        {
+          if(it->first == next2)
+            {
+              load2 = it->second.GetLoad();
+              delay2 = it->second.GetDelay();
+              route2.SetOutputDevice(it->second.GetDevice(1));
+              ipv4_2 = next2->GetObject<Ipv4>();
+              int interface = ipv4_2->GetInterfaceForDevice(it->second.GetDevice(2));
+              route2.SetGateway(ipv4_2->GetAddress(interface, 0).GetLocal());
+            }
+        }
+
+      if(load1<load2)//a*delay+b*load+c*....
+        {
+          m_cal_route_cache[{src,dst}] = route1;
+        }
+      else
+        {
+          m_cal_route_cache[{src,dst}] = route2;
+        }
+
+
+
+    }
 
 }
 
