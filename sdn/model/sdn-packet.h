@@ -46,27 +46,18 @@ public:
   /**
    * \returns the type
    */
-  MessageType Get () const
-  {
-    return m_type;
-  }
+  MessageType Get () const;
   /**
    * Check that type if valid
    * \returns true if the type is valid
    */
-  bool IsValid () const
-  {
-    return m_valid;
-  }
+  bool IsValid () const;
   /**
    * \brief Comparison operator
    * \param o header to compare
    * \return true if the headers are equal
    */
-  bool operator== (TypeHeader const & o) const
-    {
-      return (m_type == o.m_type && m_valid == o.m_valid);
-    }
+  bool operator== (TypeHeader const & o) const;
 
 private:
   MessageType m_type; ///< type of the message
@@ -80,7 +71,7 @@ private:
   0                   1                   2                   3
   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  |     Type      |J|R|G|D|U|   Reserved          |  Time         |
+  |     Type      |J|R|G|D|U|   Reserved          |  Reserved     |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   |                            RREQ ID                            |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -112,7 +103,7 @@ public:
    * \param origin the origin IP address
    * \param originSeqNo the origin sequence number
    */
-   ControlPacketHeader (uint8_t flags = 0, uint8_t reserved = 0, Time time = Seconds(0),
+   ControlPacketHeader (uint8_t flags = 0, uint8_t reserved = 0,
               uint32_t requestID = 0, Ipv4Address dst = Ipv4Address (),
               uint32_t dstSeqNo = 0, Ipv4Address origin = Ipv4Address (),
               uint32_t originSeqNo = 0);
@@ -133,18 +124,12 @@ public:
    * \brief Set the hop count
    * \param count the hop count
    */
-  void SetTime (Time time)
-  {
-    m_time = time;
-  }
+
   /**
    * \brief Get the hop count
    * \return the hop count
    */
-  uint8_t GetTime () const
-  {
-    return m_time;
-  }
+
   /**
    * \brief Set the request ID
    * \param id the request ID
@@ -267,7 +252,6 @@ public:
 private:
   uint8_t        m_flags;          ///< |J|R|G|D|U| bit flags, see RFC
   uint8_t        m_reserved;       ///< Not used (must be 0)
-  Time           m_time;
   uint32_t       m_requestID;      ///< RREQ ID
   Ipv4Address    m_dst;            ///< Destination IP Address
   uint32_t       m_dstSeqNo;       ///< Destination Sequence Number
@@ -281,6 +265,9 @@ private:
   * \return updated stream
   */
 std::ostream & operator<< (std::ostream & os, ControlPacketHeader const &);
+
+
+
 
 }
 

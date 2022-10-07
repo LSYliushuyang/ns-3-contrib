@@ -385,11 +385,12 @@ RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit 
 }
 
 RoutingProtocol::RoutingProtocol()
-  : m_type (SWITCH),
-    m_seqNo (0),
-    m_controller_seqNo (0),
+  :
     m_queue (100, Seconds(30)),
-    m_interval (Seconds(1))
+    m_type (SWITCH),
+    m_interval (Seconds(1)),
+    m_seqNo (0),
+    m_controller_seqNo (0)
 {
   m_htimer.SetFunction(&RoutingProtocol::HelloTimerExpire, this);
   uint32_t startTime = rand()%100;
@@ -437,6 +438,7 @@ RoutingProtocol::RecvControlPacket (Ptr<Socket> socket)
         RecvHello (packet, receiver, sender);
         break;
       }
+    case SDNTYPE_CONFIG:;
     }
 }
 

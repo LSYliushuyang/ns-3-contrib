@@ -2,6 +2,7 @@
 #define SDN_RQUEUE_H
 
 #include "ns3/ipv4-routing-protocol.h"
+#include "ns3/simulator.h"
 
 
 
@@ -160,27 +161,7 @@ public:
    * \param entry the queue entry
    * \returns true if the entry is queued
    */
-  bool Enqueue (QueueEntry & entry)
-  {
-    for (std::vector<QueueEntry>::const_iterator i = m_queue.begin (); i
-         != m_queue.end (); ++i)
-      {
-        if ((i->GetPacket ()->GetUid () == entry.GetPacket ()->GetUid ())
-            && (i->GetIpv4Header ().GetDestination ()
-                == entry.GetIpv4Header ().GetDestination ()))
-          {
-            return false;
-          }
-      }
-    entry.SetExpireTime (m_queueTimeout);
-    if (m_queue.size () == m_maxLen)
-      {
-        Drop (m_queue.front (), "Drop the most aged packet"); // Drop the most aged packet
-        m_queue.erase (m_queue.begin ());
-      }
-    m_queue.push_back (entry);
-    return true;
-  }
+  bool Enqueue (QueueEntry & entry);
   /**
    * Return first found (the earliest) entry for given destination
    *
@@ -188,19 +169,7 @@ public:
    * \param entry the queue entry
    * \returns true if the entry is dequeued
    */
-  bool Dequeue (Ipv4Address dst, QueueEntry & entry)
-  {
-    for (std::vector<QueueEntry>::iterator i = m_queue.begin (); i != m_queue.end (); ++i)
-      {
-        if (i->GetIpv4Header ().GetDestination () == dst)
-          {
-            entry = *i;
-            m_queue.erase (i);
-            return true;
-          }
-      }
-    return false;
-  }
+  bool Dequeue (Ipv4Address dst, QueueEntry & entry);
   /**
    * Remove all packets with destination IP address dst
    * \param dst the destination IP address
@@ -262,13 +231,7 @@ private:
    * \param en the queue entry to drop
    * \param reason the reason to drop the entry
    */
-  void Drop (QueueEntry en, std::string reason)
-  {
-    //NS_LOG_LOGIC (reason << en.GetPacket ()->GetUid () << " " << en.GetIpv4Header ().GetDestination ());
-    en.GetErrorCallback () (en.GetPacket (), en.GetIpv4Header (),
-                            Socket::ERROR_NOROUTETOHOST);
-    return;
-  }
+  void Drop (QueueEntry en, std::string reason);
   /// The maximum number of packets that we allow a routing protocol to buffer.
   uint32_t m_maxLen;
   /// The maximum period of time that a routing protocol is allowed to buffer a packet for, seconds.
