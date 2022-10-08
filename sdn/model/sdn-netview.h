@@ -3,6 +3,8 @@
 
 #include "ns3/net-device.h"
 #include "ns3/nstime.h"
+#include "sdn-flowtable.h"
+#include "sdn-id-lookup-table.h"
 
 
 namespace ns3 {
@@ -43,6 +45,9 @@ public:
   Edge GetEdge(int,int)const;
   void UpdateLoad(int,int,double);
   void UpdateDelay(int,int,Time);
+
+  FlowTableItem CalculateControlPath(uint32_t,uint32_t)const;
+
 
 private:
   std::vector<std::vector<Edge>> m_view;

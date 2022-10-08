@@ -603,6 +603,17 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
   if(!GLOBAL_FLOWTABLE.IsExist(origin,dest))
     {
 
+	  //generate flow path from origin to dest
+
+	  /*
+	   *
+	   *
+	   *
+	   *
+	   *
+	   */
+
+
     }
   Ipv4Route toOrigin;
   NS_LOG_DEBUG ("Send reply since I am the destination");
@@ -672,7 +683,18 @@ RoutingProtocol::RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sen
   Ipv4Address dst = rrepHeader.GetDst ();
   Ipv4Address src = rrepHeader.GetOrigin();
   NS_LOG_LOGIC ("RREP destination " << dst << " RREP origin " << rrepHeader.GetOrigin ());
-  NS_LOG_LOGIC ("add new route");
+  NS_LOG_LOGIC ("add new flow path");
+
+  //update LOCAL_FLOWTABLE from GLOBAL_FLOWTABLE
+  /*
+   *
+   *
+   *
+   *
+   */
+
+
+
 
   if (IsMyOwnAddress (src))
     {
@@ -680,6 +702,7 @@ RoutingProtocol::RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sen
       if(!LOCAL_FLOWTABLE.IsExist(src,dst))
         {
           NS_LOG_DEBUG("Can not update LOCAL_FLOWTABLE from RREP.");
+          return;
         }
       FlowTableItem fti = LOCAL_FLOWTABLE.Find(src,dst);
       toDst.SetDestination(dst);
