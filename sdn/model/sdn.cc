@@ -143,11 +143,11 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
   else
   {
 	  //Send RREQ
-
-	  int src_ind = NODETOIND.find(this->GetObject<Node>())->second;
+	  int src_ind = ADDTOIND.find(src)->second;
 	  int dst_ind = ADDTOIND.find(dst)->second;
-	  Time time = NETCENTER.CalculateDelay(src_ind);
-	  Simulator::Schedule(time, &ControlCenter::RecvRREQ,&NETCENTER,src_ind,dst_ind);
+	  int this_ind = NODETOIND.find(this->GetObject<Node>())->second;
+	  Time time = NETCENTER.CalculateDelay(this_ind);
+	  Simulator::Schedule(time, &ControlCenter::RecvRREQ,&NETCENTER,this_ind,src_ind,dst_ind);
 	  uint32_t iif = (oif ? m_ipv4->GetInterfaceForDevice (oif) : -1);
 	  DeferredRouteOutputTag tag (iif);
 	  NS_LOG_DEBUG ("Can not find flow-table-item match the transmission-flow.");
