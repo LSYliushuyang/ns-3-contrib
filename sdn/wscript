@@ -11,10 +11,8 @@ def build(bld):
     module.source = [
         'model/sdn.cc',
         'helper/sdn-helper.cc',
-        'model/sdn-flowtable.cc',
-        'model/sdn-id-lookup-table.cc',
+        'model/sdn-flow-table.cc',
         'model/sdn-netview.cc',
-        'model/sdn-packet.cc',
         'model/sdn-rqueue.cc',
         ]
 
@@ -33,10 +31,8 @@ def build(bld):
     headers.source = [
         'model/sdn.h',
         'helper/sdn-helper.h',
-        'model/sdn-flowtable.h',
-        'model/sdn-id-lookup-table.h',
+        'model/sdn-flow-table.h',
         'model/sdn-netview.h',
-        'model/sdn-packet.h',
         'model/sdn-rqueue.h',
         ]
 

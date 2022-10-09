@@ -6,6 +6,10 @@ namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("SDN");
 
+extern std::map<Ptr<Node>,int> NODETOIND;
+extern std::map<int,Ptr<Node>> INDTONODE;
+extern std::map<Ipv4Address,int> ADDTOIND;
+
 namespace sdn {
 
 NS_OBJECT_ENSURE_REGISTERED (RoutingProtocol);
@@ -91,11 +95,13 @@ NS_OBJECT_ENSURE_REGISTERED (DeferredRouteOutputTag);
 
 const uint32_t RoutingProtocol::SDN_PORT = 321;
 
-FlowTable RoutingProtocol::GLOBAL_FLOWTABLE = FlowTable();
+ControlCenter RoutingProtocol::NETCENTER = ControlCenter();
 
-FlowTable RoutingProtocol::LOCAL_FLOWTABLE = FlowTable();
-
-LookupTable RoutingProtocol::LOOKUP_TABLE = LookupTable();
+//FlowTable RoutingProtocol::GLOBAL_FLOWTABLE = FlowTable();
+//
+//FlowTable RoutingProtocol::LOCAL_FLOWTABLE = FlowTable();
+//
+//LookupTable RoutingProtocol::LOOKUP_TABLE = LookupTable();
 
 TypeId
 RoutingProtocol::GetTypeId(void)
@@ -126,51 +132,31 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
     }
 
   sockerr = Socket::ERROR_NOTERROR;
-  Ptr<Ipv4Route> route = Create<Ipv4Route>();
+
   Ipv4Address dst = header.GetDestination();
   Ipv4Address src = header.GetSource();
 
-  if(LOCAL_FLOWTABLE.IsExist(src,dst))
-    {
-      FlowTableItem fti = LOCAL_FLOWTABLE.Find(src, dst);
-      if(IsMyOwnAddress(src))
-        {
-          route->SetGateway(fti.GetAddress(0));
-          route->SetDestination(dst);
-          route->SetSource(src);
-          route->SetOutputDevice(fti.GetNetDevice(0));
-          return route;
-        }
-      int hops = fti.GetHop();
-      for(int i = 0 ; i < hops-1; ++i)
-        {
-          if(IsMyOwnAddress(fti.GetAddress(i)))
-            {
-              route->SetGateway(fti.GetAddress(i+1));
-              route->SetDestination(dst);
-              route->SetSource(src);
-              route->SetOutputDevice(fti.GetNetDevice(i+1));
-              return route;
-            }
-        }
-      NS_LOG_DEBUG ("Path doesn't match in the path existed in local flow table.");
-      return Ptr<Ipv4Route>();
-    }
+  if(m_flowtable.IsExist(src, dst))
+  {
+	  return m_flowtable.Get(src,dst);
+  }
+  else
+  {
+	  //Send RREQ
 
-  //this node is source node
-  if(IsMyOwnAddress(src))
-    {
-      uint32_t iif = (oif ? m_ipv4->GetInterfaceForDevice (oif) : -1);
-      DeferredRouteOutputTag tag (iif);
-      NS_LOG_DEBUG ("Can not find flow-table-item match the transmission-flow.");
-      if (!p->PeekPacketTag (tag))
-        {
-          p->AddPacketTag (tag);
-        }
-      return LoopbackRoute (header, oif);
-    }
-  NS_LOG_DEBUG ("Node on the path can not process the transmission-flow.");
-  return Ptr<Ipv4Route>();
+	  int src_ind = NODETOIND.find(this->GetObject<Node>())->second;
+	  int dst_ind = ADDTOIND.find(dst)->second;
+	  Time time = NETCENTER.CalculateDelay(src_ind);
+	  Simulator::Schedule(time, &ControlCenter::RecvRREQ,&NETCENTER,src_ind,dst_ind);
+	  uint32_t iif = (oif ? m_ipv4->GetInterfaceForDevice (oif) : -1);
+	  DeferredRouteOutputTag tag (iif);
+	  NS_LOG_DEBUG ("Can not find flow-table-item match the transmission-flow.");
+	  if (!p->PeekPacketTag (tag))
+	    {
+	      p->AddPacketTag (tag);
+	    }
+	  return LoopbackRoute (header, oif);
+  }
 }
 
 bool
@@ -368,15 +354,16 @@ RoutingProtocol::SetIpv4 (Ptr<Ipv4> ipv4)
   NS_ASSERT (m_ipv4->GetNInterfaces () == 1 && m_ipv4->GetAddress (0, 0).GetLocal () == Ipv4Address ("127.0.0.1"));
   m_lo = m_ipv4->GetNetDevice (0);
   NS_ASSERT (m_lo != 0);
-//                                   /*lifetime=*/ Simulator::GetMaximumSimulationTime ());
-//  Ipv4Route rt;
-//  rt.SetOutputDevice(m_lo);
-//  rt.SetDestination(Ipv4Address::GetLoopback());
-//  rt.SetGateway(Ipv4Address::GetLoopback());
 
-//  m_routingtable.Add (rt);
-
-//  Simulator::ScheduleNow (&RoutingProtocol::Start, this);
+  Ipv4Route rt;
+  rt.SetOutputDevice(m_lo);
+  rt.SetDestination(Ipv4Address::GetLoopback());
+  rt.SetGateway(Ipv4Address::GetLoopback());
+  for(auto it = m_socketAddresses.begin(); it != m_socketAddresses.end(); ++it)
+  {
+	  rt.SetSource(it->second.GetAddress());
+	  m_flowtable.Add(rt.GetSource(), rt.GetDestination(), rt);
+  }
 }
 
 void
@@ -387,10 +374,8 @@ RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit 
 RoutingProtocol::RoutingProtocol()
   :
     m_queue (100, Seconds(30)),
-    m_type (SWITCH),
     m_interval (Seconds(1)),
-    m_seqNo (0),
-    m_controller_seqNo (0)
+    m_seqNo (0)
 {
   m_htimer.SetFunction(&RoutingProtocol::HelloTimerExpire, this);
   uint32_t startTime = rand()%100;
@@ -414,44 +399,38 @@ RoutingProtocol::RecvControlPacket (Ptr<Socket> socket)
 
   NS_LOG_DEBUG ("SDSN node " << this << " received a SDSN packet from " << sender << " to " << receiver);
 
-  TypeHeader tHeader (SDNTYPE_RREQ);
-  packet->RemoveHeader (tHeader);
-  if (!tHeader.IsValid ())
-    {
-      NS_LOG_DEBUG ("SDN message " << packet->GetUid () << " with unknown type received: " << tHeader.Get () << ". Drop");
-      return; // drop
-    }
-  switch (tHeader.Get ())
-    {
-    case SDNTYPE_RREQ:
-      {
-        RecvRequest (packet, receiver, sender);
-        break;
-      }
-    case SDNTYPE_RREP:
-      {
-        RecvReply (packet, receiver, sender);
-        break;
-      }
-    case SDNTYPE_HELLO:
-      {
-        RecvHello (packet, receiver, sender);
-        break;
-      }
-    case SDNTYPE_CONFIG:;
-    }
-}
-
-void
-RoutingProtocol::SetOutSocket(Ipv4InterfaceAddress add)
-{
-  m_outSocket = std::make_pair(FindSocketWithInterfaceAddress(add),add);
+//  TypeHeader tHeader (SDNTYPE_RREQ);
+//  packet->RemoveHeader (tHeader);
+//  if (!tHeader.IsValid ())
+//    {
+//      NS_LOG_DEBUG ("SDN message " << packet->GetUid () << " with unknown type received: " << tHeader.Get () << ". Drop");
+//      return; // drop
+//    }
+//  switch (tHeader.Get ())
+//    {
+//    case SDNTYPE_RREQ:
+//      {
+////        RecvRequest (packet, receiver, sender);
+//        break;
+//      }
+//    case SDNTYPE_RREP:
+//      {
+////        RecvReply (packet, receiver, sender);
+//        break;
+//      }
+//    case SDNTYPE_HELLO:
+//      {
+////        RecvHello (packet, receiver, sender);
+//        break;
+//      }
+//    case SDNTYPE_CONFIG:;
+//    }
 }
 
 void
 RoutingProtocol::HelloTimerExpire ()
 {
-  SendHello();
+//  SendHello();
   m_htimer.Cancel();
   m_htimer.Schedule(std::max (Time (Seconds (0)), m_interval));
 }
@@ -499,28 +478,28 @@ RoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p, const Ipv4Header & he
   if (result)
     {
       NS_LOG_LOGIC ("Add packet " << p->GetUid () << " to queue. Protocol " << (uint16_t) header.GetProtocol ());
-      Ipv4Route rt;
-      Ipv4Address src = header.GetSource();
-      Ipv4Address dst = header.GetDestination();
-      bool result = LOCAL_FLOWTABLE.IsExist(src, dst);
-//          m_routingtable.LookupRoute (header.GetDestination (), rt);
-      if (!result)
-        {
-          NS_LOG_LOGIC ("Send new RREQ for outbound packet to " << header.GetDestination ());
-
-          ControlPacketHeader rrh;
-          rrh.SetDst(header.GetDestination());
-          rrh.SetOrigin(m_outSocket.second.GetLocal());
-
-          Ptr<Packet> packet = Create<Packet> ();
-          SocketIpTtlTag tag;
-          tag.SetTtl (30);
-          packet->AddPacketTag (tag);
-          packet->AddHeader (rrh);
-          TypeHeader tHeader (SDNTYPE_RREQ);
-          packet->AddHeader (tHeader);
-          Simulator::Schedule (Seconds(0), &RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIp);
-        }
+//      Ipv4Route rt;
+//      Ipv4Address src = header.GetSource();
+//      Ipv4Address dst = header.GetDestination();
+//      bool result = LOCAL_FLOWTABLE.IsExist(src, dst);
+////          m_routingtable.LookupRoute (header.GetDestination (), rt);
+//      if (!result)
+//        {
+//          NS_LOG_LOGIC ("Send new RREQ for outbound packet to " << header.GetDestination ());
+//
+//          ControlPacketHeader rrh;
+//          rrh.SetDst(header.GetDestination());
+//          rrh.SetOrigin(m_outSocket.second.GetLocal());
+//
+//          Ptr<Packet> packet = Create<Packet> ();
+//          SocketIpTtlTag tag;
+//          tag.SetTtl (30);
+//          packet->AddPacketTag (tag);
+//          packet->AddHeader (rrh);
+//          TypeHeader tHeader (SDNTYPE_RREQ);
+//          packet->AddHeader (tHeader);
+//          Simulator::Schedule (Seconds(0), &RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIp);
+//        }
     }
 }
 
@@ -551,110 +530,110 @@ RoutingProtocol::Forwarding (Ptr<const Packet> p, const Ipv4Header & header,
                              UnicastForwardCallback ucb, ErrorCallback ecb)
 {
   NS_LOG_FUNCTION (this);
-  Ipv4Address dst = header.GetDestination ();
-  Ipv4Address origin = header.GetSource ();
+//  Ipv4Address dst = header.GetDestination ();
+//  Ipv4Address origin = header.GetSource ();
   Ipv4Route toDst;
-  if (LOCAL_FLOWTABLE.IsExist(origin,dst))//m_routingtable.LookupRoute (dst, toDst))
-    {
-      FlowTableItem fti = LOCAL_FLOWTABLE.Find(origin,dst);
-      if(IsMyOwnAddress(origin))
-        {
-          toDst.SetSource(origin);
-          toDst.SetDestination(dst);
-          toDst.SetGateway(fti.GetAddress(0));
-          toDst.SetOutputDevice(fti.GetNetDevice(0));
-          Ptr<Ipv4Route> route = &toDst;
-          NS_LOG_LOGIC (route->GetSource () << " forwarding to " << dst << " from " << origin << " packet " << p->GetUid ());
-          ucb (route, p, header);
-          return true;
-        }
-      int hop = fti.GetHop();
-      for(int i = 0; i < hop - 1; ++i)
-        {
-          if(IsMyOwnAddress(fti.GetAddress(i)))
-            {
-              toDst.SetSource(origin);
-              toDst.SetDestination(dst);
-              toDst.SetGateway(fti.GetAddress(i+1));
-              toDst.SetOutputDevice(fti.GetNetDevice(i+1));
-              Ptr<Ipv4Route> route = &toDst;
-              NS_LOG_LOGIC (route->GetSource () << " forwarding to " << dst << " from " << origin << " packet " << p->GetUid ());
-              ucb (route, p, header);
-              return true;
-            }
-        }
-    }
-  NS_LOG_LOGIC ("route not found to " << dst << ". Send RERR message.");
+//  if (LOCAL_FLOWTABLE.IsExist(origin,dst))//m_routingtable.LookupRoute (dst, toDst))
+//    {
+//      FlowTableItem fti = LOCAL_FLOWTABLE.Find(origin,dst);
+//      if(IsMyOwnAddress(origin))
+//        {
+//          toDst.SetSource(origin);
+//          toDst.SetDestination(dst);
+//          toDst.SetGateway(fti.GetAddress(0));
+//          toDst.SetOutputDevice(fti.GetNetDevice(0));
+//          Ptr<Ipv4Route> route = &toDst;
+//          NS_LOG_LOGIC (route->GetSource () << " forwarding to " << dst << " from " << origin << " packet " << p->GetUid ());
+//          ucb (route, p, header);
+//          return true;
+//        }
+//      int hop = fti.GetHop();
+//      for(int i = 0; i < hop - 1; ++i)
+//        {
+//          if(IsMyOwnAddress(fti.GetAddress(i)))
+//            {
+//              toDst.SetSource(origin);
+//              toDst.SetDestination(dst);
+//              toDst.SetGateway(fti.GetAddress(i+1));
+//              toDst.SetOutputDevice(fti.GetNetDevice(i+1));
+//              Ptr<Ipv4Route> route = &toDst;
+//              NS_LOG_LOGIC (route->GetSource () << " forwarding to " << dst << " from " << origin << " packet " << p->GetUid ());
+//              ucb (route, p, header);
+//              return true;
+//            }
+//        }
+//    }
+//  NS_LOG_LOGIC ("route not found to " << dst << ". Send RERR message.");
   NS_LOG_DEBUG ("Drop packet " << p->GetUid () << " because no route to forward it.");
   return false;
 }
 
-void
-RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address src)
-{
-  NS_LOG_FUNCTION (this);
-  ControlPacketHeader rreqHeader;
-  p->RemoveHeader (rreqHeader);
+//void
+//RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address src)
+//{
+//  NS_LOG_FUNCTION (this);
+//  ControlPacketHeader rreqHeader;
+//  p->RemoveHeader (rreqHeader);
+//
+//  Ipv4Address origin = rreqHeader.GetOrigin ();
+//
+//  Ipv4Address dest = rreqHeader.GetDst();
+//
+//  if(!GLOBAL_FLOWTABLE.IsExist(origin,dest))
+//    {
+//
+//	  //generate flow path from origin to dest
+//
+//	  /*
+//	   *
+//	   *
+//	   *
+//	   *
+//	   *
+//	   */
+//
+//
+//    }
+//  Ipv4Route toOrigin;
+//  NS_LOG_DEBUG ("Send reply since I am the destination");
+//
+//  if(!LOCAL_FLOWTABLE.IsExist(receiver,origin))
+//    {
+//      NS_LOG_DEBUG("Can not find flow-table-item from controller to switch.");
+//      return;
+//    }
+//
+//  FlowTableItem fti = LOCAL_FLOWTABLE.Find(receiver,origin);
+//  toOrigin.SetDestination(origin);
+//  toOrigin.SetGateway(fti.GetAddress(0));
+//  toOrigin.SetOutputDevice(fti.GetNetDevice(0));
+//  toOrigin.SetSource(receiver);
+//  SendReply (rreqHeader, toOrigin);
+//  return;
+//}
 
-  Ipv4Address origin = rreqHeader.GetOrigin ();
-
-  Ipv4Address dest = rreqHeader.GetDst();
-
-  if(!GLOBAL_FLOWTABLE.IsExist(origin,dest))
-    {
-
-	  //generate flow path from origin to dest
-
-	  /*
-	   *
-	   *
-	   *
-	   *
-	   *
-	   */
-
-
-    }
-  Ipv4Route toOrigin;
-  NS_LOG_DEBUG ("Send reply since I am the destination");
-
-  if(!LOCAL_FLOWTABLE.IsExist(receiver,origin))
-    {
-      NS_LOG_DEBUG("Can not find flow-table-item from controller to switch.");
-      return;
-    }
-
-  FlowTableItem fti = LOCAL_FLOWTABLE.Find(receiver,origin);
-  toOrigin.SetDestination(origin);
-  toOrigin.SetGateway(fti.GetAddress(0));
-  toOrigin.SetOutputDevice(fti.GetNetDevice(0));
-  toOrigin.SetSource(receiver);
-  SendReply (rreqHeader, toOrigin);
-  return;
-}
-
-void
-RoutingProtocol::SendReply (ControlPacketHeader const & rreqHeader, Ipv4Route const & toOrigin)
-{
-  NS_LOG_FUNCTION (this << toOrigin.GetDestination ());
-
-  ControlPacketHeader rrepHeader;
-  rrepHeader.SetDst(rreqHeader.GetDst());
-  rrepHeader.SetOrigin(toOrigin.GetDestination ());
-
-
-  Ptr<Packet> packet = Create<Packet> ();
-  SocketIpTtlTag tag;
-  tag.SetTtl (30);
-  packet->AddPacketTag (tag);
-  packet->AddHeader (rrepHeader);
-  TypeHeader tHeader (SDNTYPE_RREP);
-  packet->AddHeader (tHeader);
-
-  Ptr<Socket> socket = FindSocketWithInterfaceAddress (Ipv4InterfaceAddress(toOrigin.GetSource(),"255.255.255.0"));
-  NS_ASSERT (socket);
-  socket->SendTo (packet, 0, InetSocketAddress (toOrigin.GetDestination(), SDN_PORT));
-}
+//void
+//RoutingProtocol::SendReply (ControlPacketHeader const & rreqHeader, Ipv4Route const & toOrigin)
+//{
+//  NS_LOG_FUNCTION (this << toOrigin.GetDestination ());
+//
+//  ControlPacketHeader rrepHeader;
+//  rrepHeader.SetDst(rreqHeader.GetDst());
+//  rrepHeader.SetOrigin(toOrigin.GetDestination ());
+//
+//
+//  Ptr<Packet> packet = Create<Packet> ();
+//  SocketIpTtlTag tag;
+//  tag.SetTtl (30);
+//  packet->AddPacketTag (tag);
+//  packet->AddHeader (rrepHeader);
+//  TypeHeader tHeader (SDNTYPE_RREP);
+//  packet->AddHeader (tHeader);
+//
+//  Ptr<Socket> socket = FindSocketWithInterfaceAddress (Ipv4InterfaceAddress(toOrigin.GetSource(),"255.255.255.0"));
+//  NS_ASSERT (socket);
+//  socket->SendTo (packet, 0, InetSocketAddress (toOrigin.GetDestination(), SDN_PORT));
+//}
 
 Ptr<Socket>
 RoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr ) const
@@ -674,55 +653,55 @@ RoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr ) con
   return socket;
 }
 
-void
-RoutingProtocol::RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender)
-{
-  NS_LOG_FUNCTION (this << " src " << sender);
-  ControlPacketHeader rrepHeader;
-  p->RemoveHeader (rrepHeader);
-  Ipv4Address dst = rrepHeader.GetDst ();
-  Ipv4Address src = rrepHeader.GetOrigin();
-  NS_LOG_LOGIC ("RREP destination " << dst << " RREP origin " << rrepHeader.GetOrigin ());
-  NS_LOG_LOGIC ("add new flow path");
+//void
+//RoutingProtocol::RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender)
+//{
+//  NS_LOG_FUNCTION (this << " src " << sender);
+//  ControlPacketHeader rrepHeader;
+//  p->RemoveHeader (rrepHeader);
+//  Ipv4Address dst = rrepHeader.GetDst ();
+//  Ipv4Address src = rrepHeader.GetOrigin();
+//  NS_LOG_LOGIC ("RREP destination " << dst << " RREP origin " << rrepHeader.GetOrigin ());
+//  NS_LOG_LOGIC ("add new flow path");
+//
+//  //update LOCAL_FLOWTABLE from GLOBAL_FLOWTABLE
+//  /*
+//   *
+//   *
+//   *
+//   *
+//   */
+//
+//
+//
+//
+//  if (IsMyOwnAddress (src))
+//    {
+//      Ipv4Route toDst;
+//      if(!LOCAL_FLOWTABLE.IsExist(src,dst))
+//        {
+//          NS_LOG_DEBUG("Can not update LOCAL_FLOWTABLE from RREP.");
+//          return;
+//        }
+//      FlowTableItem fti = LOCAL_FLOWTABLE.Find(src,dst);
+//      toDst.SetDestination(dst);
+//      toDst.SetGateway(fti.GetAddress(0));
+//      toDst.SetOutputDevice(fti.GetNetDevice(0));
+//      toDst.SetSource(src);
+//      SendPacketFromQueue (dst, &toDst);
+//      return;
+//    }
+//}
 
-  //update LOCAL_FLOWTABLE from GLOBAL_FLOWTABLE
-  /*
-   *
-   *
-   *
-   *
-   */
-
-
-
-
-  if (IsMyOwnAddress (src))
-    {
-      Ipv4Route toDst;
-      if(!LOCAL_FLOWTABLE.IsExist(src,dst))
-        {
-          NS_LOG_DEBUG("Can not update LOCAL_FLOWTABLE from RREP.");
-          return;
-        }
-      FlowTableItem fti = LOCAL_FLOWTABLE.Find(src,dst);
-      toDst.SetDestination(dst);
-      toDst.SetGateway(fti.GetAddress(0));
-      toDst.SetOutputDevice(fti.GetNetDevice(0));
-      toDst.SetSource(src);
-      SendPacketFromQueue (dst, &toDst);
-      return;
-    }
-}
-
-void
-RoutingProtocol::RecvHello (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender)
-{
-}
-
-void
-RoutingProtocol::RecvConfig (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender)
-{
-}
+//void
+//RoutingProtocol::RecvHello (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender)
+//{
+//}
+//
+//void
+//RoutingProtocol::RecvConfig (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender)
+//{
+//}
 
 void
 RoutingProtocol::SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route)
@@ -748,51 +727,51 @@ RoutingProtocol::SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route)
     }
 }
 
-void
-RoutingProtocol::SendHello ()
-{
-  NS_LOG_FUNCTION (this);
-
-  if(m_type == CONTROLLER)
-    {
-      /*
-       *
-       *
-       *
-       *
-       *
-       *
-       *
-       *
-       */
-
-    }
-  ControlPacketHeader helloHeader;
-  helloHeader.SetDst(m_conIp);
-  helloHeader.SetOrigin(m_outSocket.second.GetLocal());
-  Ptr<Packet> packet = Create<Packet> ();
-
-  SocketIpTtlTag tag;
-  tag.SetTtl (30);
-  packet->AddPacketTag (tag);
-  packet->AddHeader (helloHeader);
-  TypeHeader tHeader (SDNTYPE_HELLO);
-  packet->AddHeader(tHeader);
-  /*
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   */
-  Simulator::Schedule(Seconds(0),&RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIp);
-}
+//void
+//RoutingProtocol::SendHello ()
+//{
+//  NS_LOG_FUNCTION (this);
+//
+//  if(m_type == CONTROLLER)
+//    {
+//      /*
+//       *
+//       *
+//       *
+//       *
+//       *
+//       *
+//       *
+//       *
+//       */
+//
+//    }
+//  ControlPacketHeader helloHeader;
+//  helloHeader.SetDst(m_conIp);
+//  helloHeader.SetOrigin(m_outSocket.second.GetLocal());
+//  Ptr<Packet> packet = Create<Packet> ();
+//
+//  SocketIpTtlTag tag;
+//  tag.SetTtl (30);
+//  packet->AddPacketTag (tag);
+//  packet->AddHeader (helloHeader);
+//  TypeHeader tHeader (SDNTYPE_HELLO);
+//  packet->AddHeader(tHeader);
+//  /*
+//   *
+//   *
+//   *
+//   *
+//   *
+//   *
+//   *
+//   *
+//   *
+//   *
+//   *
+//   */
+//  Simulator::Schedule(Seconds(0),&RoutingProtocol::SendTo, this, m_outSocket.first, packet, m_conIp);
+//}
 
 
 

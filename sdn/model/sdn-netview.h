@@ -3,55 +3,30 @@
 
 #include "ns3/net-device.h"
 #include "ns3/nstime.h"
-#include "sdn-flowtable.h"
-#include "sdn-id-lookup-table.h"
+#include "sdn-flow-table.h"
 
 
 namespace ns3 {
 
 namespace sdn {
 
-class Edge
+struct Edge
 {
-public:
-  Edge();
-  double GetLoad()const;
-  Time GetDelay()const;
-  void SetLoad();
-  void SetDelay();
-
-private:
-  double m_load;
-  Time m_delay;
+	double load = 0;
 };
 
-
-class SeqPath
+class ControlCenter
 {
 public:
-  SeqPath();
-  int GetHop()const;
-  uint32_t GetSeq(int)const;
+	void SetController(int);
+	void AddSwitchToController(int,int);
+	Time CalculateDelay(int);
+	void RecvRREQ(int,int);
 
 private:
-  std::vector<uint32_t> m_path;
-  int m_hop;
-};
-
-class NetView
-{
-public:
-  NetView();
-  Edge GetEdge(int,int)const;
-  void UpdateLoad(int,int,double);
-  void UpdateDelay(int,int,Time);
-
-  FlowTableItem CalculateControlPath(uint32_t,uint32_t)const;
-
-
-private:
-  std::vector<std::vector<Edge>> m_view;
-  int m_num;
+	std::map<std::pair<int,int>,Edge> m_edges;
+	std::vector<std::vector<int>> m_G;
+	std::map<int,std::vector<int>> m_controllers;
 };
 
 

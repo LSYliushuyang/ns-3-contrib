@@ -3,27 +3,27 @@
 #define SDN_H
 
 #include "ns3/ipv4-routing-protocol.h"
-#include "sdn-packet.h"
-#include "sdn-flowtable.h"
+#include "sdn-flow-table.h"
 #include "sdn-rqueue.h"
 #include "ns3/timer.h"
-#include "sdn-id-lookup-table.h"
 #include "ns3/ipv4-l3-protocol.h"
 #include "ns3/udp-socket-factory.h"
+#include "sdn-netview.h"
+#include "ns3/node.h"
+
+
 
 namespace ns3 {
 
-namespace sdn {
 
-enum NodeType {SWITCH, CONTROLLER};
+
+namespace sdn {
 
 class RoutingProtocol : public Ipv4RoutingProtocol
 {
 public:
   static const uint32_t SDN_PORT;
-  static FlowTable GLOBAL_FLOWTABLE;
-  static FlowTable LOCAL_FLOWTABLE;
-  static LookupTable LOOKUP_TABLE;
+  static ControlCenter NETCENTER;
 
   static TypeId GetTypeId(void);
 
@@ -41,24 +41,9 @@ public:
 
 public:
 
-  NodeType GetNodeType(){return m_type;}
-
-  void SetNodeType(NodeType nt){m_type = nt;}
-
   RoutingProtocol();
-//  :m_queue(100,Seconds(30)),m_type(SWITCH),m_interval(Seconds(1)),m_controller_seqNo(0),m_seqNo(0)
-//  {
-//    m_htimer.SetFunction (&RoutingProtocol::HelloTimerExpire, this);
-//    uint32_t startTime = rand()%100;
-//    m_htimer.Schedule (MilliSeconds (startTime));
-
-
-//    m_htimer.Schedule (Seconds(0));
-//  };
 
   void RecvControlPacket (Ptr<Socket> socket);
-
-  void SetOutSocket(Ipv4InterfaceAddress add);
 
   void HelloTimerExpire ();
 
@@ -73,21 +58,21 @@ private:
   bool Forwarding (Ptr<const Packet> p, const Ipv4Header & header,
                    UnicastForwardCallback ucb, ErrorCallback ecb);
 
-  void RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address src);
+//  void RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address src);
 
-  void SendReply (ControlPacketHeader const & conPacHeader, Ipv4Route const & toOrigin);
+//  void SendReply (ControlPacketHeader const & conPacHeader, Ipv4Route const & toOrigin);
 
   Ptr<Socket> FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr ) const;
 
-  void RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
+//  void RecvReply (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
 
-  void RecvHello(Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
+//  void RecvHello(Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
 
-  void RecvConfig(Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
+//  void RecvConfig(Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
 
   void SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route);
 
-  void SendHello ();
+//  void SendHello ();
 
 
 private:
@@ -96,22 +81,14 @@ private:
   Ptr<Ipv4> m_ipv4;
   RequestQueue m_queue;
 
-  NodeType m_type;
-
-  std::pair<Ptr<Socket>,Ipv4InterfaceAddress> m_outSocket;
 
   Timer m_htimer;
   Time m_interval;
 
   uint32_t m_seqNo;
 
-  uint32_t m_controller_seqNo;
+  FlowTable m_flowtable;
 
-  std::vector<uint32_t> m_switch_seqNos;
-
-  Ipv4Address m_conIp;
-
-//  std::pair<int,int> a;
 
 
 
