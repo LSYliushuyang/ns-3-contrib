@@ -90,6 +90,7 @@ ControlCenter::RecvRREQ(int req,Ipv4Address src ,Ipv4Address dst)
   //A new flow request from 'src' to 'dst', requested by 'req'
   // 'req' == 'src'
   std::vector<int> path = CalculatePath(src_ind,dst_ind);
+  m_path[{src_ind,dst_ind}] = path;
   Ptr<Node> no;
   Ptr<RoutingProtocol> rp;
   Time time;
@@ -102,6 +103,41 @@ ControlCenter::RecvRREQ(int req,Ipv4Address src ,Ipv4Address dst)
   }
 
   return;
+}
+
+bool
+ControlCenter::IsController(int i)const
+{
+	return m_controllers.count(i);
+}
+
+bool
+ControlCenter::IsExistPath(int src, int dst)const
+{
+	return m_path.count({src,dst});
+}
+
+std::vector<int>
+ControlCenter::CalculatePath(int src, int dst)
+{
+
+
+
+
+
+	return path;
+}
+
+Ipv4Address
+ControlCenter::GetGateWay(int cur, int next)
+{
+
+}
+
+Ptr<NetDevice>
+ControlCenter::GetOutputDevice(int cur, int next)
+{
+
 }
 
 

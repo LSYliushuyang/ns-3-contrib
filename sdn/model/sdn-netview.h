@@ -9,6 +9,8 @@
 #include "ns3/simulator.h"
 #include "ns3/sdn.h"
 
+extern int NPLANE;
+extern int NPERPLANE;
 
 namespace ns3 {
 
@@ -17,6 +19,7 @@ namespace sdn {
 struct Edge
 {
 	double load = 0;
+	Time delay = Seconds(0);
 };
 
 class ControlCenter
