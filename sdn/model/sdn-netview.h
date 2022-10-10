@@ -4,6 +4,10 @@
 #include "ns3/net-device.h"
 #include "ns3/nstime.h"
 #include "sdn-flow-table.h"
+#include "ns3/ipv4-routing-protocol.h"
+#include "ns3/node.h"
+#include "ns3/simulator.h"
+#include "ns3/sdn.h"
 
 
 namespace ns3 {
@@ -21,9 +25,14 @@ public:
 	void SetController(int);
 	void AddSwitchToController(int,int);
 	Time CalculateDelay(int);
-	void RecvRREQ(int,int,int);
+	void RecvRREQ(int,Ipv4Address,Ipv4Address);
 	bool IsController(int)const;
 	bool IsExistPath(int,int)const;
+
+	std::vector<int> CalculatePath(int,int);
+
+	Ipv4Address GetGateWay(int,int);
+	Ptr<NetDevice> GetOutputDevice(int,int);
 
 private:
 	std::map<std::pair<int,int>,Edge> m_edges;

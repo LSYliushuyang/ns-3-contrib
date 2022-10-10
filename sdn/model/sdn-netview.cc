@@ -8,6 +8,9 @@ extern std::map<Ipv4Address,int> ADDTOIND;
 
 namespace sdn {
 
+class RoutingProtocol;
+
+
 void
 ControlCenter::SetController(int i)
 {
@@ -53,17 +56,19 @@ ControlCenter::CalculateDelay(int swc)
 }
 
 void
-ControlCenter::RecvRREQ(int req, int src ,int dst)
+ControlCenter::RecvRREQ(int req,Ipv4Address src ,Ipv4Address dst)
 {
   //RREQ is from 'req'
   //To request req's route of the flow from 'src' to 'dst'
 
   //the nodes on the flow between 'src' and 'dst' have know route
   //but a RREQ generated
-  if(IsExistPath(src,dst))
+	int src_ind = ADDTOIND.find(src)->second;
+	int dst_ind = ADDTOIND.find(dst)->second;
+  if(IsExistPath(src_ind,dst_ind))
     {
-      for(auto it = m_path[{src,dst}].begin();
-          it != m_path[{src,dst}].end();
+      for(auto it = m_path[{src_ind,dst_ind}].begin();
+          it != m_path[{src_ind,dst_ind}].end();
               ++it)
         {
           if(*it == req)
@@ -83,9 +88,19 @@ ControlCenter::RecvRREQ(int req, int src ,int dst)
       return;
     }
   //A new flow request from 'src' to 'dst', requested by 'req'
-  /*
-   *
-   */
+  // 'req' == 'src'
+  std::vector<int> path = CalculatePath(src_ind,dst_ind);
+  Ptr<Node> no;
+  Ptr<RoutingProtocol> rp;
+  Time time;
+  for(auto it = path.begin(); it != path.end()-1; ++it)
+  {
+	  no = INDTONODE.find(*it)->second;
+	  rp = no->GetObject<RoutingProtocol>();
+	  time = CalculateDelay(*it);
+	  Simulator::Schedule(time,&RoutingProtocol::RecvRREP,rp,src,dst,*(it+1));
+  }
+
   return;
 }
 

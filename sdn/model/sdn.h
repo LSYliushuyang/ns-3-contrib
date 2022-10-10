@@ -19,6 +19,8 @@ namespace ns3 {
 
 namespace sdn {
 
+class ControlCenter;
+
 class RoutingProtocol : public Ipv4RoutingProtocol
 {
 public:
@@ -45,6 +47,8 @@ public:
 
   void RecvControlPacket (Ptr<Socket> socket);
 
+  void RecvRREP(Ipv4Address,Ipv4Address,int);
+
   void HelloTimerExpire ();
 
   void SetHelloInterval(Time time){m_interval = time;}
@@ -70,7 +74,7 @@ private:
 
 //  void RecvConfig(Ptr<Packet> p, Ipv4Address receiver, Ipv4Address sender);
 
-  void SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route);
+  void SendPacketFromQueue (Ipv4Address src, Ipv4Address dst, Ptr<Ipv4Route> route);
 
 //  void SendHello ();
 

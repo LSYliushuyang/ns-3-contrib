@@ -143,11 +143,11 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
   else
   {
 	  //Send RREQ
-	  int src_ind = ADDTOIND.find(src)->second;
-	  int dst_ind = ADDTOIND.find(dst)->second;
+//	  int src_ind = ADDTOIND.find(src)->second;
+//	  int dst_ind = ADDTOIND.find(dst)->second;
 	  int this_ind = NODETOIND.find(this->GetObject<Node>())->second;
 	  Time time = NETCENTER.CalculateDelay(this_ind);
-	  Simulator::Schedule(time, &ControlCenter::RecvRREQ,&NETCENTER,this_ind,src_ind,dst_ind);
+	  Simulator::Schedule(time, &ControlCenter::RecvRREQ,&NETCENTER,this_ind,src,dst);
 	  uint32_t iif = (oif ? m_ipv4->GetInterfaceForDevice (oif) : -1);
 	  DeferredRouteOutputTag tag (iif);
 	  NS_LOG_DEBUG ("Can not find flow-table-item match the transmission-flow.");
@@ -704,11 +704,11 @@ RoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr ) con
 //}
 
 void
-RoutingProtocol::SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route)
+RoutingProtocol::SendPacketFromQueue (Ipv4Address src, Ipv4Address dst, Ptr<Ipv4Route> route)
 {
   NS_LOG_FUNCTION (this);
   QueueEntry queueEntry;
-  while (m_queue.Dequeue (dst, queueEntry))
+  while (m_queue.Dequeue (src, dst, queueEntry))
     {
       DeferredRouteOutputTag tag;
       Ptr<Packet> p = ConstCast<Packet> (queueEntry.GetPacket ());
@@ -725,6 +725,20 @@ RoutingProtocol::SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route)
       header.SetTtl (header.GetTtl () + 1); // compensate extra TTL decrement by fake loopback routing
       ucb (route, p, header);
     }
+}
+
+void
+RoutingProtocol::RecvRREP(Ipv4Address src, Ipv4Address dst, int next)
+{
+	int this_no = NODETOIND.find(this->GetObject<Node>())->second;
+	Ptr<Ipv4Route> route = Create<Ipv4Route>();
+	route->SetSource(src);
+	route->SetDestination(dst);
+	route->SetGateway(NETCENTER.GetGateWay(this_no,next));
+	route->SetOutputDevice(NETCENTER.GetOutputDevice(this_no,next));
+	m_flowtable.Delete(src,dst);
+	m_flowtable.Add(src,dst,route);
+	SendPacketFromQueue(src,dst,route);
 }
 
 //void
