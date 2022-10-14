@@ -39,7 +39,7 @@ public:
 
 private:
 	std::map<std::pair<int,int>,Edge> m_edges;
-	std::vector<std::vector<int>> m_G;
+	std::vector<std::vector<int>> m_G;		//1 means connected ;0 means myself ;-1 means not connected
 	std::map<int,std::vector<int>> m_controllers;
 	std::map<int,int> m_swcTocon;
 

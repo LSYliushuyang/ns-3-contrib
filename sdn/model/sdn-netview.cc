@@ -5,6 +5,9 @@ namespace ns3 {
 extern std::map<Ptr<Node>,int> NODETOIND;
 extern std::map<int,Ptr<Node>> INDTONODE;
 extern std::map<Ipv4Address,int> ADDTOIND;
+extern int NPLANE;
+extern int NPERPLANE;
+
 
 namespace sdn {
 
@@ -120,6 +123,183 @@ ControlCenter::IsExistPath(int src, int dst)const
 std::vector<int>
 ControlCenter::CalculatePath(int src, int dst)
 {
+	//from <si,sj> to <di,dj>
+	int si,sj,di,dj;
+	si = src/NPERPLANE;
+	sj = src%NPERPLANE;
+	di = dst/NPERPLANE;
+	dj = dst%NPERPLANE;
+	int i = si;
+	int j = sj;
+	std::vector<int> path;
+
+
+//	if(si < di)
+//	{
+//		if(sj < dj && dj-sj <= sj-dj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<si,sj>
+//			 *
+//			 * 						<di,dj>
+//			 */
+//		}
+//		if(sj<dj && dj-sj > sj-dj+NPERPLANE)
+//		{
+//			/*
+//			 * 						<di,dj>
+//			 *
+//			 * 	<si,sj+NPERPLANE>
+//			 */
+//
+//
+//		}
+//		if(sj == dj)
+//		{
+//			/*
+//			 * 	<si,sj>		<di,dj>
+//			 */
+//
+//		}
+//		if(sj > dj && sj-dj <= dj-sj+NPERPLANE)
+//		{
+//			/*
+//			 * 						<di,dj>
+//			 *
+//			 * 	<si,sj>
+//			 */
+//
+//
+//
+//		}
+//		if(sj > dj && sj-dj > dj-sj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<si,sj>
+//			 *
+//			 * 				<di,dj+NPERPLANE>
+//			 */
+//
+//		}
+//
+//	}
+//	if(si == di)
+//	{
+//		if(sj < dj && dj-sj <= sj-dj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<si,sj>
+//			 *
+//			 * 	<di,dj>
+//			 */
+//
+//		}
+//		if(sj < dj && dj-sj > sj-dj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<di,dj>
+//			 *
+//			 * 	<si,sj+NPERPLANE>
+//			 */
+//
+//		}
+//		if(sj == dj)
+//		{
+//			/*
+//			 * <si,sj> == <di,dj>
+//			 */
+//
+//		}
+//		if(sj > dj && sj-dj <= dj-sj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<di,dj>
+//			 *
+//			 * 	<si,sj>
+//			 */
+//
+//		}
+//		if(sj > dj && sj-dj > dj-sj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<si,sj>
+//			 *
+//			 * 	<di,dj+NPERPLANE>
+//			 */
+//
+//		}
+//	}
+//	if(si > di)
+//	{
+//		if(sj < dj && dj-sj <= sj-dj+NPERPLANE)
+//		{
+//			/*
+//			 * 						<si,sj>
+//			 *
+//			 * 	<di,dj>
+//			 *
+//			 */
+//
+//
+//		}
+//		if(sj<dj && dj-sj > sj-dj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<di,dj>
+//			 *
+//			 * 						<si,sj+NPERPLANE>
+//			 */
+//
+//		}
+//		if(sj == dj)
+//		{
+//			/*
+//			 * 	<di,dj>				<si,sj>
+//			 */
+//
+//		}
+//		if(sj > dj && sj-dj <= dj-sj+NPERPLANE)
+//		{
+//			/*
+//			 * 	<di,dj>
+//			 *
+//			 * 						<si,sj>
+//			 */
+//
+//
+//		}
+//		if(sj > dj && sj-dj > dj-sj+NPERPLANE)
+//		{
+//			/*
+//			 * 						<si,sj>
+//			 *
+//			 * 	<di,dj+NPERPLANE>
+//			 */
+//
+//		}
+//	}
+
+	path.push_back(src);
+	while(i != di || j != dj)
+	{
+		if(i==di)
+		{
+			continue;
+		}
+		if(j==dj)
+		{
+			continue;
+		}
+
+
+	}
+	path.push_back(dst);
+
+
+
+
+
+
 
 
 
