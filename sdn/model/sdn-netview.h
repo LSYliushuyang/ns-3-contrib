@@ -2,6 +2,7 @@
 #define SDN_NETVIEW_H
 
 #include "ns3/net-device.h"
+#include "ns3/channel.h"
 #include "ns3/nstime.h"
 #include "sdn-flow-table.h"
 #include "ns3/ipv4-routing-protocol.h"
