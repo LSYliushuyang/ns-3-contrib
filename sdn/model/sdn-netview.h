@@ -10,8 +10,8 @@
 #include "ns3/simulator.h"
 #include "ns3/sdn.h"
 
-extern int NPLANE;
-extern int NPERPLANE;
+//extern int NPLANE;
+//extern int NPERPLANE;
 
 namespace ns3 {
 

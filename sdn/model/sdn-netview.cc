@@ -1,10 +1,12 @@
 #include "sdn-netview.h"
 
+extern std::map<ns3::Ptr<ns3::Node>,int> NODETOIND;
+extern std::map<int,ns3::Ptr<ns3::Node>> INDTONODE;
+extern std::map<ns3::Ipv4Address,int> ADDTOIND;
+
 namespace ns3 {
 
-extern std::map<Ptr<Node>,int> NODETOIND;
-extern std::map<int,Ptr<Node>> INDTONODE;
-extern std::map<Ipv4Address,int> ADDTOIND;
+
 
 namespace sdn {
 
@@ -64,7 +66,13 @@ ControlCenter::RecvRREQ(int req,Ipv4Address src ,Ipv4Address dst)
 
   //the nodes on the flow between 'src' and 'dst' have know route
   //but a RREQ generated
-	int src_ind = ADDTOIND.find(src)->second;
+
+	int src_ind;
+	if(src.IsInitialized())
+		src_ind = ADDTOIND.find(src)->second;
+	else
+		src_ind = req;
+
 	int dst_ind = ADDTOIND.find(dst)->second;
   if(IsExistPath(src_ind,dst_ind))
     {

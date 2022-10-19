@@ -2,13 +2,15 @@
 
 #include "sdn.h"
 
+std::map<ns3::Ptr<ns3::Node>,int> NODETOIND;
+std::map<int,ns3::Ptr<ns3::Node>> INDTONODE;
+std::map<ns3::Ipv4Address,int> ADDTOIND;
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("SDN");
 
-extern std::map<Ptr<Node>,int> NODETOIND;
-extern std::map<int,Ptr<Node>> INDTONODE;
-extern std::map<Ipv4Address,int> ADDTOIND;
+
 
 namespace sdn {
 
@@ -106,7 +108,7 @@ ControlCenter RoutingProtocol::NETCENTER = ControlCenter();
 TypeId
 RoutingProtocol::GetTypeId(void)
 {
-  static TypeId tid = TypeId ("ns3::sdn::RouringProtocol")
+  static TypeId tid = TypeId ("ns3::sdn::RoutingProtocol")
       .SetParent<Ipv4RoutingProtocol>()
       .SetGroupName ("SDN")
       .AddConstructor<RoutingProtocol>()
