@@ -78,7 +78,8 @@ main (int argc, char *argv[])
   c.Get(7)->GetObject<SphericalPositionMobilityModel>()->SetVelocity(Vector(-3.14/2/10,0.0,0.0));
   c.Get(8)->GetObject<SphericalPositionMobilityModel>()->SetVelocity(Vector(-3.14/2/10,0.0,0.0));
 
-
+  sdn::RoutingProtocol::NETCENTER.SetNum(9);
+  sdn::RoutingProtocol::NETCENTER.InitG();
 
 
   PointToPointWirelessHelper p2p;
@@ -89,7 +90,14 @@ main (int argc, char *argv[])
 		  NodeContainer temp;
 		  temp.Add(c.Get(i*3+j));
 		  temp.Add(c.Get(j+1>=3? j+1-3: j+1));
-		  p2p.Install(temp);
+
+		  NetDeviceContainer ndc;
+		  ndc = p2p.Install(temp);
+
+		  sdn::Edge edge;
+		  edge.delay = ndc.Get(0)->GetChannel()->GetDelay();
+		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j,j+1>=3? j+1-3: j+1,edge);
+		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j,j+1>=3? j+1-3: j+1,1);
 	  }
   }
 
@@ -100,9 +108,19 @@ main (int argc, char *argv[])
 		  NodeContainer temp;
 		  temp.Add(c.Get(i*3+j));
 		  temp.Add(c.Get(i*3+j+3));
-		  p2p.Install(temp);
+
+		  NetDeviceContainer ndc;
+		  ndc = p2p.Install(temp);
+
+		  sdn::Edge edge;
+		  edge.delay = ndc.Get(0)->GetChannel()->GetDelay();
+		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j,i*3+j+3,edge);
+      sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j,i*3+j+3,1);
 	  }
   }
+
+
+
 
   SDNHelper sdnh;
 
@@ -139,6 +157,11 @@ main (int argc, char *argv[])
 	  }
   }
 
+
+
+
+
+
   Ipv4Address add = c.Get(5)->GetObject<Ipv4L3Protocol>()->GetAddress(1,0).GetAddress();
   OnOffHelper onoff("ns3::UdpSocketFactory",InetSocketAddress(add,9));
   onoff.SetAttribute("PacketSize",  UintegerValue (512));
@@ -159,10 +182,6 @@ main (int argc, char *argv[])
 
   LogComponentEnable("OnOffApplication",LOG_INFO);
   LogComponentEnable("PacketSink",LOG_INFO);
-
-
-
-
 
 
 

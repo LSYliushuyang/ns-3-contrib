@@ -38,11 +38,22 @@ public:
 	Ipv4Address GetGateWay(int,int);
 	Ptr<NetDevice> GetOutputDevice(int,int);
 
+	void ChangeEdge(int,int,Edge);
+
+	void ChangeG(int,int,int);
+
+	void SetNum(int);
+
+	void InitG();
+
+
 private:
 	std::map<std::pair<int,int>,Edge> m_edges;
 	std::vector<std::vector<int>> m_G;		//1 means connected ;0 means myself ;-1 means not connected
 	std::map<int,std::vector<int>> m_controllers;
 	std::map<int,int> m_swcTocon;
+
+	int m_num;
 
 	//the nodes exist in the 'm_path' means these
 	//nodes have been known the routes to transmit the flow

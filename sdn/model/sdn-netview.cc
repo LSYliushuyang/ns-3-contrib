@@ -413,6 +413,42 @@ ControlCenter::GetOutputDevice(int cur, int next)
 }
 
 
+void
+ControlCenter::ChangeEdge(int from, int to, Edge val)
+{
+  m_edges[{from,to}] = val;
+}
+
+void
+ControlCenter::SetNum(int num)
+{
+  m_num = num;
+}
+
+void
+ControlCenter::InitG()
+{
+  if(!m_G.empty()) return;
+  std::vector<int> temp;
+  for(int i = 0; i < m_num; ++i)
+    {
+      temp.push_back(-1);
+    }
+  for(int i = 0; i < m_num; ++i)
+    {
+      m_G.push_back(temp);
+    }
+  for(int i = 0; i < m_num; ++i)
+    {
+      m_G[i][i] = 0;
+    }
+}
+
+void
+ControlCenter::ChangeG(int from, int to, int val)
+{
+  m_G[from][to] = val;
+}
 
 
 
