@@ -120,6 +120,7 @@ Ptr<Ipv4Route>
 RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
                               Ptr<NetDevice> oif, Socket::SocketErrno &sockerr)
 {
+
   if (!p)
     {
       NS_LOG_DEBUG ("Packet is == 0" );
@@ -137,6 +138,11 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
 
   Ipv4Address dst = header.GetDestination();
   Ipv4Address src = header.GetSource();
+
+  if(!src.IsInitialized())
+  {
+	  src = GetDefaultSourceAddress();
+  }
 
   if(m_flowtable.IsExist(src, dst))
   {
@@ -157,6 +163,7 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
 	    {
 	      p->AddPacketTag (tag);
 	    }
+
 	  return LoopbackRoute (header, oif);
   }
 }
@@ -436,6 +443,11 @@ RoutingProtocol::HelloTimerExpire ()
   m_htimer.Cancel();
   m_htimer.Schedule(std::max (Time (Seconds (0)), m_interval));
 }
+Ipv4Address
+RoutingProtocol::GetDefaultSourceAddress()
+{
+	return m_socketAddresses.begin ()->second.GetLocal();
+}
 
 Ptr<Ipv4Route>
 RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) const
@@ -532,9 +544,20 @@ RoutingProtocol::Forwarding (Ptr<const Packet> p, const Ipv4Header & header,
                              UnicastForwardCallback ucb, ErrorCallback ecb)
 {
   NS_LOG_FUNCTION (this);
-//  Ipv4Address dst = header.GetDestination ();
-//  Ipv4Address origin = header.GetSource ();
-  Ipv4Route toDst;
+  Ipv4Address dst = header.GetDestination ();
+  Ipv4Address src = header.GetSource ();
+
+  if(m_flowtable.IsExist(src, dst))
+  {
+	  ucb(m_flowtable.Get(src, dst),p,header);
+	  return true;
+  }
+
+//  Ipv4Route toDst;
+
+
+
+
 //  if (LOCAL_FLOWTABLE.IsExist(origin,dst))//m_routingtable.LookupRoute (dst, toDst))
 //    {
 //      FlowTableItem fti = LOCAL_FLOWTABLE.Find(origin,dst);
@@ -566,6 +589,8 @@ RoutingProtocol::Forwarding (Ptr<const Packet> p, const Ipv4Header & header,
 //        }
 //    }
 //  NS_LOG_LOGIC ("route not found to " << dst << ". Send RERR message.");
+
+
   NS_LOG_DEBUG ("Drop packet " << p->GetUid () << " because no route to forward it.");
   return false;
 }

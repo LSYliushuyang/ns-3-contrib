@@ -103,6 +103,13 @@ ControlCenter::RecvRREQ(int req,Ipv4Address src ,Ipv4Address dst)
   Ptr<Node> no;
   Ptr<RoutingProtocol> rp;
   Time time;
+
+  if(req == src_ind)
+  {
+	  src = INDTONODE.find(*path.begin())->second->GetObject<RoutingProtocol>()->GetDefaultSourceAddress();
+  }
+
+
   for(auto it = path.begin(); it != path.end()-1; ++it)
   {
 	  no = INDTONODE.find(*it)->second;
@@ -307,10 +314,13 @@ ControlCenter::CalculatePath(int src, int dst)
 		if(*it == 0)
 		{
 			cost.push_back(0);
+			flag.push_back(1);
+			continue;
 		}
 		if(*it == -1)
 		{
 			cost.push_back(-1);
+			flag.push_back(1);
 			continue;
 		}
 		cost.push_back(m_edges[{src,*it}].delay.GetSeconds());
@@ -330,7 +340,7 @@ ControlCenter::CalculatePath(int src, int dst)
 			int ind = 0;
 			for(auto iit = it->second.begin(); iit != it->second.end(); ++iit)
 			{
-				if(flag[ind] == 0) continue;
+				if(flag[ind] == 0) {ind+=1; continue;}
 				if(*iit >= 0 && *iit < min_cost)
 				{
 					min_cost = *iit;
@@ -348,6 +358,7 @@ ControlCenter::CalculatePath(int src, int dst)
 			if(*it == 0)
 			{
 				cost.push_back(0);
+				continue;
 			}
 			if(*it == -1)
 			{

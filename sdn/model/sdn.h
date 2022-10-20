@@ -54,6 +54,8 @@ public:
 
   void SetHelloInterval(Time time){m_interval = time;}
 
+  Ipv4Address GetDefaultSourceAddress();
+
 private:
 
   Ptr<Ipv4Route> LoopbackRoute (const Ipv4Header & header, Ptr<NetDevice> oif) const;
