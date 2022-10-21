@@ -28,24 +28,12 @@ class ControlCenter
 public:
 	void SetController(int);
 	void AddSwitchToController(int,int);
-	Time CalculateDelay(int);
-	void RecvRREQ(int,Ipv4Address,Ipv4Address);
 	bool IsController(int)const;
 	bool IsExistPath(int,int)const;
-
-	std::vector<int> CalculatePath(int,int);
-
-	Ipv4Address GetGateWay(int,int);
-	Ptr<NetDevice> GetOutputDevice(int,int);
-
 	void ChangeEdge(int,int,Edge);
-
 	void ChangeG(int,int,int);
-
 	void SetNum(int);
-
 	void InitG();
-
 
 private:
 	std::map<std::pair<int,int>,Edge> m_edges;
@@ -58,6 +46,16 @@ private:
 	//the nodes exist in the 'm_path' means these
 	//nodes have been known the routes to transmit the flow
 	std::map<std::pair<int,int>,std::vector<int>> m_path;
+
+public:
+	Time CalculateDelay(int);
+	void RecvRREQ(int,Ipv4Address,Ipv4Address);
+	std::vector<int> CalculatePath(int,int);
+	Ipv4Address GetGateWay(int,int);
+	Ptr<NetDevice> GetOutputDevice(int,int);
+	void RecvHello(int,int,Edge);
+
+
 };
 
 

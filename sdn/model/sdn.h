@@ -79,7 +79,7 @@ private:
 
   void SendPacketFromQueue (Ipv4Address src, Ipv4Address dst, Ptr<Ipv4Route> route);
 
-//  void SendHello ();
+  void SendHello ();
 
 
 private:

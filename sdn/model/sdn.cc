@@ -439,7 +439,7 @@ RoutingProtocol::RecvControlPacket (Ptr<Socket> socket)
 void
 RoutingProtocol::HelloTimerExpire ()
 {
-//  SendHello();
+  SendHello();
   m_htimer.Cancel();
   m_htimer.Schedule(std::max (Time (Seconds (0)), m_interval));
 }
@@ -766,6 +766,38 @@ RoutingProtocol::RecvRREP(Ipv4Address src, Ipv4Address dst, int next)
 	m_flowtable.Delete(src,dst);
 	m_flowtable.Add(src,dst,route);
 	SendPacketFromQueue(src,dst,route);
+}
+
+void
+RoutingProtocol::SendHello()
+{
+	Ptr<Node> this_n = this->GetObject<Node>();
+	int this_ind = NODETOIND.find(this_n)->second;
+	Time delay;
+	double load;
+	Edge edge;
+	Time time = NETCENTER.CalculateDelay(this_ind);
+	for(uint32_t i = 0; i < this_n->GetNDevices(); ++i)
+	{
+		Ptr<NetDevice> this_d = this_n->GetDevice(i);
+		Ptr<Channel> this_c = this_d->GetChannel();
+		if(this_c)
+		{
+			Ptr<NetDevice> o_d = this_c->GetDevice(0) == this_d ? this_c->GetDevice(1) : this_c->GetDevice(0);
+			int o_ind = NODETOIND.find(o_d->GetNode())->second;
+			delay = this_c->GetDelay();
+			load = this_d->GetLoad();
+			edge.delay = delay;
+			edge.load = load;
+			Simulator::Schedule(time, &ControlCenter::RecvHello,&NETCENTER,this_ind,o_ind,edge);
+		}
+	}
+
+
+
+
+
+
 }
 
 //void

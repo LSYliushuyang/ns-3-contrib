@@ -46,8 +46,23 @@ Time
 ControlCenter::CalculateDelay(int swc)
 {
   int con = m_swcTocon[swc];
-  Ptr<Node> swc_n = INDTONODE.find(swc)->second;
-  Ptr<Node> con_n = INDTONODE.find(con)->second;
+  std::vector<int> path;
+  if(IsExistPath(swc,con))
+  {
+	  path = m_path.find({swc,con})->second;
+  }
+  else
+  {
+	  path = CalculatePath(swc,con);
+	  m_path[{swc,con}] = path;
+  }
+  Time t = Seconds(0);
+  for(auto it = path.begin(); it != path.end()-1; ++it)
+  {
+	  t = t + m_edges[{*it,*(it+1)}].delay;
+  }
+
+//   = CalculatePath(swc,con);
   /*
    *
    *
@@ -55,7 +70,7 @@ ControlCenter::CalculateDelay(int swc)
    *
    */
 
-  return Seconds(0);
+  return t;
 }
 
 void
@@ -459,6 +474,11 @@ void
 ControlCenter::ChangeG(int from, int to, int val)
 {
   m_G[from][to] = val;
+}
+void
+ControlCenter::RecvHello(int from, int to ,Edge edge)
+{
+	ChangeEdge(from,to,edge);
 }
 
 
