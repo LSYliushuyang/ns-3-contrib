@@ -72,17 +72,17 @@ main (int argc, char *argv[])
   mobility.SetMobilityModel("ns3::SphericalPositionMobilityModel");
 
   Ptr<PositionAllocator> position = mobility.GetPositionAllocator();
-  position->GetObject<ListPositionAllocator>()->Add(Vector(0,0,6371e3 + 780));			//0,0
-  position->GetObject<ListPositionAllocator>()->Add(Vector(M_PI/3,M_PI,6371e3 + 780));	//0,1
-  position->GetObject<ListPositionAllocator>()->Add(Vector(-M_PI/3,M_PI,6371e3 + 780));	//0,2
+  position->GetObject<ListPositionAllocator>()->Add(Vector(0,0,6371e3 + 780000));			//0,0
+  position->GetObject<ListPositionAllocator>()->Add(Vector(M_PI/3,M_PI,6371e3 + 780000));	//0,1
+  position->GetObject<ListPositionAllocator>()->Add(Vector(-M_PI/3,M_PI,6371e3 + 780000));	//0,2
 
-  position->GetObject<ListPositionAllocator>()->Add(Vector(0,M_PI/3,6371e3 + 780));			//1,0
-  position->GetObject<ListPositionAllocator>()->Add(Vector(M_PI/3,-M_PI*2/3,6371e3 + 780));	//1,1
-  position->GetObject<ListPositionAllocator>()->Add(Vector(-M_PI/3,-M_PI*2/3,6371e3 + 780));	//1,2
+  position->GetObject<ListPositionAllocator>()->Add(Vector(0,M_PI/3,6371e3 + 780000));			//1,0
+  position->GetObject<ListPositionAllocator>()->Add(Vector(M_PI/3,-M_PI*2/3,6371e3 + 780000));	//1,1
+  position->GetObject<ListPositionAllocator>()->Add(Vector(-M_PI/3,-M_PI*2/3,6371e3 + 780000));	//1,2
 
-  position->GetObject<ListPositionAllocator>()->Add(Vector(0,M_PI*2/3,6371e3 + 780));			//2,0
-  position->GetObject<ListPositionAllocator>()->Add(Vector(M_PI/3,-M_PI/3,6371e3 + 780));	//2,1
-  position->GetObject<ListPositionAllocator>()->Add(Vector(-M_PI/3,-M_PI/3,6371e3 + 780));	//2,2
+  position->GetObject<ListPositionAllocator>()->Add(Vector(0,M_PI*2/3,6371e3 + 780000));			//2,0
+  position->GetObject<ListPositionAllocator>()->Add(Vector(M_PI/3,-M_PI/3,6371e3 + 780000));	//2,1
+  position->GetObject<ListPositionAllocator>()->Add(Vector(-M_PI/3,-M_PI/3,6371e3 + 780000));	//2,2
 
   mobility.Install(c);
 
@@ -108,7 +108,7 @@ main (int argc, char *argv[])
 	  {
 		  NodeContainer temp;
 		  temp.Add(c.Get(i*3+j));
-		  temp.Add(c.Get(j+1>=3? j+1-3: j+1));
+		  temp.Add(c.Get(j+1>=3? i*3+j+1-3: i*3+j+1));
 
 		  NetDeviceContainer ndc;
 		  ndc = p2p.Install(temp);
@@ -191,7 +191,8 @@ main (int argc, char *argv[])
   OnOffHelper onoff("ns3::UdpSocketFactory",InetSocketAddress(add,9));
   onoff.SetAttribute("PacketSize",  UintegerValue (512));
   onoff.SetAttribute("OnTime",StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
-  onoff.SetAttribute("OffTime",StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
+  onoff.SetAttribute("OffTime",StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
+  onoff.SetAttribute("DataRate", StringValue("2Mbps"));
   onoff.SetAttribute("MaxBytes", UintegerValue (0));
   ApplicationContainer onoffClientApps = onoff.Install(c.Get(0));
   onoffClientApps.Start(Seconds(1.0));
@@ -200,7 +201,7 @@ main (int argc, char *argv[])
   PacketSinkHelper sink("ns3::UdpSocketFactory",InetSocketAddress(Ipv4Address::GetAny(),9));
   ApplicationContainer sinkApps = sink.Install(c.Get(5));
   sinkApps.Start(Seconds(1));
-  sinkApps.Stop(Seconds(10));
+  sinkApps.Stop(Seconds(15));
 
 
 
