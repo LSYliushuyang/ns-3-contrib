@@ -481,6 +481,49 @@ ControlCenter::RecvHello(int from, int to ,Edge edge)
 	ChangeEdge(from,to,edge);
 }
 
+void
+ControlCenter::Init(NodeContainer c)
+{
+	//check for total number
+	if((int)c.GetN() != m_num )
+	{
+		return;
+	}
+
+	//check for one-to-one
+	for(int i = 0; i < m_num; ++i)
+	{
+		if(NODETOIND.find(c.Get(i))->second != i)
+		{
+			return;
+		}
+	}
+	//Init the connectivity in m_G and the edge-info in m_edges
+	Ptr<Node> cur,o;
+	Ptr<NetDevice> cur_d, o_d;
+	Ptr<Channel> cha;
+	Edge edge;
+	int o_ind;
+	for(int i = 0; i < m_num; ++i)
+	{
+		cur = c.Get(i);
+		for(uint32_t j = 0; j < cur->GetNDevices(); ++j )
+		{
+			cur_d = cur->GetDevice(j);
+			cha = cur_d->GetChannel();
+			if(cha)
+			{
+				o_d = cha->GetDevice(0) == cur_d ? cha->GetDevice(1) : cha->GetDevice(0);
+				o = o_d->GetNode();
+				o_ind = NODETOIND.find(o)->second;
+				edge.delay = cha->GetDelay();
+				ChangeG(i,o_ind,1);
+				ChangeEdge(i,o_ind,edge);
+			}
+		}
+	}
+}
+
 
 
 }

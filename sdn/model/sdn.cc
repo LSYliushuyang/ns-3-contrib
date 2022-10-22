@@ -271,6 +271,7 @@ RoutingProtocol::NotifyInterfaceDown (uint32_t i)
   if (m_socketAddresses.empty ())
     {
       NS_LOG_LOGIC ("No sdn interfaces");
+      m_htimer.Cancel();
 
       return;
     }
@@ -342,6 +343,7 @@ RoutingProtocol::NotifyRemoveAddress (uint32_t i, Ipv4InterfaceAddress address)
       if (m_socketAddresses.empty ())
         {
           NS_LOG_LOGIC ("No sdsn interfaces");
+          m_htimer.Cancel();
           return;
         }
     }
@@ -383,12 +385,14 @@ RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit 
 RoutingProtocol::RoutingProtocol()
   :
     m_queue (100, Seconds(30)),
-    m_interval (Seconds(1)),
+	m_htimer(Timer::CANCEL_ON_DESTROY),
+    m_interval (Seconds(0.5)),
     m_seqNo (0)
 {
   m_htimer.SetFunction(&RoutingProtocol::HelloTimerExpire, this);
   uint32_t startTime = rand()%100;
   m_htimer.Schedule (MilliSeconds(startTime));
+
 }
 
 void
@@ -787,17 +791,16 @@ RoutingProtocol::SendHello()
 			int o_ind = NODETOIND.find(o_d->GetNode())->second;
 			delay = this_c->GetDelay();
 			load = this_d->GetLoad();
+			if(this_ind == 0 && o_ind == 2)
+			{
+				std::cout<<Simulator::Now().GetSeconds()<<": "<<"from "<<this_ind <<" to "<<o_ind<<" delay: "<< delay.GetSeconds()
+						<< " load: "<<load<<std::endl;
+			}
 			edge.delay = delay;
 			edge.load = load;
 			Simulator::Schedule(time, &ControlCenter::RecvHello,&NETCENTER,this_ind,o_ind,edge);
 		}
 	}
-
-
-
-
-
-
 }
 
 //void

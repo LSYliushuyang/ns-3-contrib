@@ -9,6 +9,7 @@
 #include "ns3/node.h"
 #include "ns3/simulator.h"
 #include "ns3/sdn.h"
+#include "ns3/node-container.h"
 
 //extern int NPLANE;
 //extern int NPERPLANE;
@@ -34,6 +35,7 @@ public:
 	void ChangeG(int,int,int);
 	void SetNum(int);
 	void InitG();
+	void Init(NodeContainer c);
 
 private:
 	std::map<std::pair<int,int>,Edge> m_edges;
