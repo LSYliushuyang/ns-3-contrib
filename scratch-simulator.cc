@@ -22,6 +22,7 @@
 #include "ns3/mobility-module.h"
 #include "ns3/sdn.h"
 #include "ns3/sdn-helper.h"
+#include "ns3/config-store.h"
 
 extern std::map<ns3::Ptr<ns3::Node>,int> NODETOIND;
 extern std::map<int,ns3::Ptr<ns3::Node>> INDTONODE;
@@ -32,6 +33,13 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("ScratchSimulator");
 
+int num = 0;
+
+void TrafficControlDropCallback(std::string context,Ptr<const QueueDiscItem> qdi,const char * reason)
+{
+	num = num +1;
+	NS_LOG_UNCOND("DropAfterDequeue" <<reason<< context);
+}
 
 
 void MacTxCallback(std::string context,Ptr<const Packet> p)
@@ -50,6 +58,8 @@ void TxRxPointToPointCallback(std::string context,Ptr<const Packet> p, Ptr<NetDe
 {
 	NS_LOG_UNCOND("TxRx"<< "at " <<t1 << "&" <<t2<< context);
 }
+
+
 
 
 int 
@@ -101,7 +111,7 @@ main (int argc, char *argv[])
 
 
   PointToPointWirelessHelper p2p;
-  p2p.SetDeviceAttribute("DataRate", StringValue("50Mbps"));
+  p2p.SetDeviceAttribute("DataRate", StringValue("1.9Mbps"));
   for(int i = 0; i < 3; ++i)
   {
 	  for(int j = 0; j < 3; ++j)
@@ -115,11 +125,11 @@ main (int argc, char *argv[])
 
 		  sdn::Edge edge;
 		  edge.delay = ndc.Get(0)->GetChannel()->GetDelay();
-		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j,j+1>=3? i*3+j+1-3: i*3+j+1,edge);
-		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(j+1>=3? i*3+j+1-3: i*3+j+1,i*3+j,edge);
-
-		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j,j+1>=3? i*3+j+1-3: i*3+j+1,1);
-		  sdn::RoutingProtocol::NETCENTER.ChangeG(j+1>=3? i*3+j+1-3: i*3+j+1,i*3+j,1);
+//		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j,j+1>=3? i*3+j+1-3: i*3+j+1,edge);
+//		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(j+1>=3? i*3+j+1-3: i*3+j+1,i*3+j,edge);
+//
+//		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j,j+1>=3? i*3+j+1-3: i*3+j+1,1);
+//		  sdn::RoutingProtocol::NETCENTER.ChangeG(j+1>=3? i*3+j+1-3: i*3+j+1,i*3+j,1);
 	  }
   }
 
@@ -136,14 +146,26 @@ main (int argc, char *argv[])
 
 		  sdn::Edge edge;
 		  edge.delay = ndc.Get(0)->GetChannel()->GetDelay();
-		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j,i*3+j+3,edge);
-		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j+3,i*3+j,edge);
-
-		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j,i*3+j+3,1);
-		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j+3,i*3+j,1);
+//		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j,i*3+j+3,edge);
+//		  sdn::RoutingProtocol::NETCENTER.ChangeEdge(i*3+j+3,i*3+j,edge);
+//
+//		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j,i*3+j+3,1);
+//		  sdn::RoutingProtocol::NETCENTER.ChangeG(i*3+j+3,i*3+j,1);
 	  }
   }
 
+
+  sdn::RoutingProtocol::NETCENTER.Init(c);
+  sdn::RoutingProtocol::NETCENTER.SetController(4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(0,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(1,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(2,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(3,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(4,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(5,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(6,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(7,4);
+  sdn::RoutingProtocol::NETCENTER.AddSwitchToController(8,4);
 
 
 
@@ -187,6 +209,7 @@ main (int argc, char *argv[])
 
 
 
+
   Ipv4Address add = c.Get(5)->GetObject<Ipv4L3Protocol>()->GetAddress(1,0).GetAddress();
   OnOffHelper onoff("ns3::UdpSocketFactory",InetSocketAddress(add,9));
   onoff.SetAttribute("PacketSize",  UintegerValue (512));
@@ -210,23 +233,41 @@ main (int argc, char *argv[])
   LogComponentEnable("PacketSink",LOG_INFO);
 
 //  	  LogComponentEnable("SDN",LOG_DEBUG );
+//
+  	  Config::Connect(
+  			  "/$ns3::NodeListPriv/NodeList/*/$ns3::Node/"
+  			  "$ns3::TrafficControlLayer/RootQueueDiscList/*/"
+  			  "$ns3::FqCoDelQueueDisc/DropBeforeEnqueue",
+			  MakeCallback(&TrafficControlDropCallback));
 
-//  	  Config::Connect(
-//  			  "/NodeList/0/DeviceList/*/$ns3::PointToPointWirelessNetDevice/MacTx",
-//			  MakeCallback(&MacTxCallback));
-//  	  Config::Connect(
-//  			  "/ChannelList/*/$ns3::PointToPointWirelessChannel/TxRxPointToPoint",
-//			  MakeCallback(&TxRxPointToPointCallback));
-
+  	  Config::Set("/$ns3::NodeListPriv/NodeList/0/$ns3::Node/"
+  			  "$ns3::TrafficControlLayer/RootQueueDiscList/1/"
+  			  "$ns3::FqCoDelQueueDisc/Target",StringValue("5s"));
+  	  Config::Set("/$ns3::NodeListPriv/NodeList/0/$ns3::Node/"
+  			  "$ns3::TrafficControlLayer/RootQueueDiscList/1/"
+  			  "$ns3::FqCoDelQueueDisc/MaxSize",StringValue("1p"));
+//
 // 	  Config::Connect(
 //  			  "/NodeList/2/DeviceList/*/$ns3::PointToPointWirelessNetDevice/MacRx",
 //			  MakeCallback(&MacRxCallback));
-// 	  Config::Connect(
-//  			  "/NodeList/5/DeviceList/*/$ns3::PointToPointWirelessNetDevice/MacRx",
-//			  MakeCallback(&PhyTxDropCallback));
+
+  Config::SetDefault("ns3::ConfigStore::Filename",StringValue("sdn.txt"));
+  Config::SetDefault("ns3::ConfigStore::FileFormat",StringValue("RawText"));
+  Config::SetDefault("ns3::ConfigStore::Mode",StringValue("Save"));
+  ConfigStore output;
+//  output.ConfigureDefaults();
+  output.ConfigureAttributes();
 
 
 
+
+
+
+  Simulator::Stop(Seconds(15));
   Simulator::Run ();
   Simulator::Destroy ();
+
+  std::cout<<"TOTAL DROP NUMBER: " << num <<std::endl;
+
+  return 0;
 }
